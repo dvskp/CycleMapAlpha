@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Cycling Map — Full Feature Build</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>Cycling Map — v4</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
@@ -11,631 +11,2264 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 
 <style>
-  html,body,#map{height:100%;margin:0;padding:0;font-family:system-ui,Arial}
-  #map{position:relative}
-  .topbar{position:absolute;left:10px;top:10px;z-index:1300;background:#fff;padding:10px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);min-width:420px}
-  .topbar h1{margin:0 0 6px 0;font-size:15px}
-  .controls{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;align-items:center}
-  .btn{padding:6px 8px;border-radius:6px;background:#f3f4f6;border:1px solid #e5e7eb;cursor:pointer;font-size:13px}
-  .btn.primary{background:#2b8a3e;color:#fff;border-color:transparent}
-  .btn.cancel{background:#ef4444;color:#fff;border-color:transparent}
-  .small{font-size:12px;color:#444}
-  .legend{margin-top:8px}
-  .legend .row{display:flex;align-items:center;gap:8px;margin:4px 0}
-  .swatch{width:18px;height:12px;border-radius:3px;display:inline-block}
-  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
-  .popup-form label{display:block;margin:6px 0 2px;font-size:13px}
-  .popup-form input,.popup-form textarea,.popup-form select{width:100%;box-sizing:border-box;padding:6px;font-size:13px}
-  .popup-actions{display:flex;gap:8px;margin-top:8px}
-  .exportBtn{background:#2563eb;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer}
-  .deleteBtn{background:#ef4444;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer}
-  .search-row{display:flex;gap:8px;align-items:center;margin-left:auto}
+:root {
+  --primary: #2b8a3e;
+  --primary-dark: #237032;
+  --accent: #7c3aed;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+}
+
+* { box-sizing: border-box; }
+html, body, #map { height: 100%; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+#map { position: relative; }
+
+/* Control Panel */
+.panel {
+  position: absolute;
+  z-index: 1300;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+
+.topbar {
+  left: 10px;
+  top: 10px;
+  width: 320px;
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--gray-200);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.topbar-header h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.topbar-content {
+  padding: 10px 14px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Ride Planner Panel */
+.ride-planner {
+  right: 10px;
+  top: 10px;
+  width: 360px;
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.ride-planner.collapsed {
+  transform: translateX(calc(100% + 20px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ride-planner-header {
+  padding: 12px 14px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ride-planner-header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ride-planner-content {
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  background: var(--gray-50);
+}
+
+.ride-planner-footer {
+  padding: 12px 14px;
+  border-top: 1px solid var(--gray-200);
+  background: #fff;
+}
+
+/* Segment List for Ride Planner */
+.segment-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  min-height: 100px;
+}
+
+.segment-list-empty {
+  text-align: center;
+  padding: 30px 20px;
+  color: var(--gray-600);
+  font-size: 13px;
+}
+
+.segment-item {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.15s;
+}
+
+.segment-item:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.1);
+}
+
+.segment-item.dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+}
+
+.segment-item .drag-handle {
+  color: var(--gray-400);
+  cursor: grab;
+  font-size: 16px;
+}
+
+.segment-item .segment-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.segment-item .segment-name {
+  font-weight: 500;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.segment-item .segment-meta {
+  font-size: 11px;
+  color: var(--gray-600);
+  margin-top: 2px;
+}
+
+.segment-item .segment-remove {
+  background: none;
+  border: none;
+  color: var(--gray-400);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.segment-item .segment-remove:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Connector between segments */
+.segment-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 0;
+  color: var(--gray-400);
+  font-size: 11px;
+}
+
+.segment-connector .connector-line {
+  height: 20px;
+  width: 2px;
+  background: var(--gray-300);
+  margin: 0 8px;
+}
+
+/* Ride Stats */
+.ride-stats {
+  padding: 12px 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.ride-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.stat-box {
+  text-align: center;
+  padding: 8px;
+  background: var(--gray-50);
+  border-radius: 6px;
+}
+
+.stat-box .stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.stat-box .stat-label {
+  font-size: 10px;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Surface breakdown */
+.surface-breakdown {
+  margin-top: 10px;
+}
+
+.surface-bar {
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  background: var(--gray-200);
+}
+
+.surface-bar-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.surface-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+.surface-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.surface-legend-item .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Elevation chart container */
+.elevation-chart-container {
+  height: 100px;
+  padding: 10px 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+/* Buttons */
+.btn {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--gray-100);
+  border: 1px solid var(--gray-200);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover { background: var(--gray-200); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.primary { background: var(--primary); color: #fff; border-color: transparent; }
+.btn.primary:hover { background: var(--primary-dark); }
+.btn.accent { background: var(--accent); color: #fff; border-color: transparent; }
+.btn.danger { background: var(--danger); color: #fff; border-color: transparent; }
+.btn.sm { padding: 5px 8px; font-size: 12px; }
+.btn.block { width: 100%; justify-content: center; }
+
+.btn-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Controls */
+.controls { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+
+/* Sections */
+.section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.section-title {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+
+.collapsible-header .toggle-icon {
+  transition: transform 0.2s;
+}
+
+.collapsible-header.collapsed .toggle-icon {
+  transform: rotate(-90deg);
+}
+
+.collapsible-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.collapsible-content.collapsed {
+  max-height: 0 !important;
+}
+
+/* Layer toggles */
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 13px;
+}
+
+.layer-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.layer-row label {
+  cursor: pointer;
+  flex: 1;
+}
+
+.swatch {
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+/* Popups */
+.popup-form label {
+  display: block;
+  margin: 8px 0 3px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-600);
+}
+
+.popup-form input,
+.popup-form textarea,
+.popup-form select {
+  width: 100%;
+  padding: 8px;
+  font-size: 13px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+}
+
+.popup-form input:focus,
+.popup-form textarea:focus,
+.popup-form select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+.popup-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+/* Toast notifications */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--gray-800);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: all;
+  animation: toastIn 0.3s ease;
+  max-width: 400px;
+}
+
+.toast.success { background: #16a34a; }
+.toast.error { background: #ef4444; }
+.toast.warning { background: #f59e0b; }
+
+@keyframes toastIn {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Spinner */
+.spinner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255,255,255,0.8);
+  z-index: 9998;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner.active { display: flex; }
+
+.spinner-circle {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--gray-200);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* File inputs */
+.file-input-wrapper {
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+}
+
+.file-input-wrapper input[type=file] {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+  .topbar { width: calc(50% - 15px); max-width: 280px; }
+  .ride-planner { width: calc(50% - 15px); max-width: 320px; }
+}
+
+@media (max-width: 600px) {
+  .topbar, .ride-planner {
+    position: fixed;
+    width: calc(100% - 20px);
+    max-width: none;
+    left: 10px;
+    right: 10px;
+  }
+  .topbar { top: 10px; max-height: 50vh; }
+  .ride-planner { 
+    top: auto; 
+    bottom: 10px; 
+    max-height: 45vh;
+  }
+  .ride-planner.collapsed { transform: translateY(calc(100% + 20px)); }
+}
 </style>
 </head>
 <body>
-  <div id="map"></div>
+<div id="map"></div>
 
-  <div class="topbar" id="topbar">
-    <h1>🚲 Cycling Map — Full</h1>
+<div class="toast-container" id="toastContainer"></div>
+<div class="spinner" id="spinner"><div class="spinner-circle"></div></div>
+
+<!-- Main Control Panel -->
+<div class="panel topbar" id="topbar">
+  <div class="topbar-header">
+    <h1>🚲 Cycling Map</h1>
+    <button id="btnTogglePlanner" class="btn sm accent">📋 Plan</button>
+  </div>
+  
+  <div class="topbar-content">
+    <!-- Routing Controls -->
     <div class="controls">
-      <button id="btnRoute" class="btn primary">Enable Routing</button>
-      <button id="btnCancel" class="btn cancel" disabled>Cancel Start</button>
+      <button id="btnRoute" class="btn primary">🛤️ Route</button>
+      <select id="routeProfile" class="btn">
+        <option value="quiet">🌲 Quiet</option>
+        <option value="balanced">⚖️ Balanced</option>
+        <option value="fast">⚡ Fast</option>
+      </select>
+    </div>
+    
+    <div class="controls">
+      <button id="btnFinish" class="btn" disabled>✓ Done</button>
+      <button id="btnCancel" class="btn danger" disabled>✕ Cancel</button>
+      <button id="btnUndo" class="btn" disabled>↶</button>
+      <button id="btnRedo" class="btn" disabled>↷</button>
+    </div>
 
-      <button id="btnSave" class="btn">Save</button>
-      <button id="btnLoad" class="btn">Load</button>
-      <button id="btnExportAll" class="btn">Export All</button>
-      <label class="btn">Import <input id="importFile" type="file" accept="application/json" style="display:none"/></label>
-
-      <div class="search-row">
-        <select id="searchType" class="btn" style="padding:6px 8px">
-          <option value="bike_shop">Bike shops</option>
-          <option value="drinking_water">Water sources</option>
-        </select>
-        <button id="btnSearchNearby" class="btn">Search Nearby</button>
+    <div class="controls">
+      <button id="btnDownload" class="btn">💾 Save</button>
+      <div class="file-input-wrapper">
+        <button class="btn">📂 Load</button>
+        <input id="importFile" type="file" accept="application/json"/>
+      </div>
+      <div class="file-input-wrapper">
+        <button class="btn">🗺️ GPX</button>
+        <input id="importGPX" type="file" accept=".gpx"/>
       </div>
     </div>
 
-    <div class="legend">
-      <div style="font-weight:600">Layers</div>
-      <div class="row"><input id="toggleSegments" type="checkbox" checked/> <label for="toggleSegments">Segments</label></div>
-      <div class="row"><input id="toggleUserPOIs" type="checkbox" checked/> <label for="toggleUserPOIs">User POIs</label></div>
-      <div class="row"><input id="toggleToilets" type="checkbox" checked/> <label for="toggleToilets">Public Toilets</label></div>
-      <div class="row"><input id="toggleCamps" type="checkbox" checked/> <label for="toggleCamps">Campgrounds</label></div>
-
-      <div style="font-weight:600;margin-top:8px">POI Filters</div>
-      <div class="filters">
-        <label><input class="poi-filter" type="checkbox" value="toilet" checked/> Toilets</label>
-        <label><input class="poi-filter" type="checkbox" value="campground" checked/> Campgrounds</label>
-        <label><input class="poi-filter" type="checkbox" value="bike_shop" checked/> Bike shops</label>
-        <label><input class="poi-filter" type="checkbox" value="water" checked/> Water</label>
+    <!-- Layers Section -->
+    <div class="section">
+      <div class="collapsible-header" data-target="layersContent">
+        <span class="section-title" style="margin:0">Map Layers</span>
+        <span class="toggle-icon">▼</span>
       </div>
+      <div class="collapsible-content" id="layersContent">
+        <div class="layer-row">
+          <input type="checkbox" id="toggleSegments" checked/>
+          <label for="toggleSegments">Route Segments</label>
+        </div>
+        <div class="layer-row">
+          <input type="checkbox" id="toggleUserPOIs" checked/>
+          <label for="toggleUserPOIs">My POIs</label>
+        </div>
+        <div class="layer-row">
+          <input type="checkbox" id="toggleBikePaths" checked/>
+          <label for="toggleBikePaths">🚴 Bike Paths</label>
+        </div>
+        <div class="layer-row">
+          <input type="checkbox" id="toggleToilets" checked/>
+          <label for="toggleToilets">🚻 Toilets & 🅿️ Rest Stops</label>
+        </div>
+        <div class="layer-row">
+          <input type="checkbox" id="toggleCamps" checked/>
+          <label for="toggleCamps">⛺ Campgrounds</label>
+        </div>
+      </div>
+    </div>
 
-      <div style="font-weight:600;margin-top:8px">Segment ranking</div>
-      <div class="row"><span class="swatch" style="background:#7c3aed"></span> Dedicated path</div>
-      <div class="row"><span class="swatch" style="background:#16a34a"></span> Good</div>
-      <div class="row"><span class="swatch" style="background:#f59e0b"></span> Okay</div>
-      <div class="row"><span class="swatch" style="background:#ef4444"></span> Bad</div>
+    <!-- Legend Section -->
+    <div class="section">
+      <div class="collapsible-header collapsed" data-target="legendContent">
+        <span class="section-title" style="margin:0">Legend</span>
+        <span class="toggle-icon">▼</span>
+      </div>
+      <div class="collapsible-content collapsed" id="legendContent" style="max-height:0">
+        <div style="padding-top:8px">
+          <div class="layer-row"><span class="swatch" style="background:#7c3aed"></span> Dedicated path</div>
+          <div class="layer-row"><span class="swatch" style="background:#16a34a"></span> Good</div>
+          <div class="layer-row"><span class="swatch" style="background:#f59e0b"></span> Okay</div>
+          <div class="layer-row"><span class="swatch" style="background:#ef4444"></span> Bad</div>
+          <div class="layer-row"><span class="swatch" style="background:#0ea5e9"></span> Bike infra</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" style="font-size:11px;color:var(--gray-600)">
+      <b>Tips:</b> Ctrl+Click to add POI • Esc to cancel
     </div>
   </div>
+</div>
 
-  <!-- libs -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Ride Planner Panel -->
+<div class="panel ride-planner collapsed" id="ridePlanner">
+  <div class="ride-planner-header">
+    <h2>📋 Ride Planner</h2>
+    <button id="btnClosePlanner" class="btn sm" style="background:rgba(255,255,255,0.2);border:none;color:#fff">✕</button>
+  </div>
+  
+  <div class="ride-stats" id="rideStats">
+    <div class="ride-stats-grid">
+      <div class="stat-box">
+        <div class="stat-value" id="statDistance">0</div>
+        <div class="stat-label">Total km</div>
+      </div>
+      <div class="stat-box" style="background:#dcfce7">
+        <div class="stat-value" id="statElevGain">0</div>
+        <div class="stat-label">🔺 Climb (m)</div>
+      </div>
+      <div class="stat-box" style="background:#fee2e2">
+        <div class="stat-value" id="statElevLoss">0</div>
+        <div class="stat-label">🔻 Descent (m)</div>
+      </div>
+    </div>
+    <div id="surfaceBreakdownContainer" style="margin-top:10px">
+      <div style="font-size:11px;color:var(--gray-600);margin-bottom:4px;font-weight:500">Surface Types</div>
+      <div class="surface-bar" id="surfaceBar"></div>
+      <div class="surface-legend" id="surfaceLegend"></div>
+    </div>
+  </div>
+  
+  <div class="elevation-chart-container">
+    <canvas id="plannerElevationChart"></canvas>
+  </div>
+  
+  <div class="ride-planner-content">
+    <ul class="segment-list" id="plannerSegmentList">
+      <li class="segment-list-empty">
+        Click segments on the map to add them to your ride plan, or drag segments here.
+      </li>
+    </ul>
+  </div>
+  
+  <div class="ride-planner-footer">
+    <div class="btn-group">
+      <button id="btnExportPlanGPX" class="btn primary block" disabled>
+        📥 Export GPX for Navigation
+      </button>
+    </div>
+    <div class="btn-group" style="margin-top:8px">
+      <button id="btnClearPlan" class="btn sm">🗑️ Clear</button>
+      <button id="btnAutoRoute" class="btn sm" disabled>🔗 Connect Segments</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-/* =========================
-   Map + Layers init
-   ========================= */
-const map = L.map('map').setView([35.68,139.76], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; OSM contributors'}).addTo(map);
-
-// main layers
-const segmentsLayer = L.featureGroup().addTo(map);
-const userPoisLayer = L.featureGroup().addTo(map);
-
-// POI category groups (hold user POIs by category)
-const poiGroups = {
-  toilet: L.featureGroup(),
-  campground: L.featureGroup(),
-  bike_shop: L.featureGroup(),
-  water: L.featureGroup()
-};
-// fetched clusters for Overpass results
-const toiletsCluster = L.markerClusterGroup().addTo(map);
-const campsCluster = L.markerClusterGroup().addTo(map);
-const searchCluster = L.markerClusterGroup().addTo(map); // for search results
-
-// map layer control (we'll manage toggles via checkboxes too)
-L.control.layers(null, { "Segments": segmentsLayer, "User POIs": userPoisLayer, "Public Toilets": toiletsCluster, "Campgrounds": campsCluster }, { collapsed:false }).addTo(map);
+(function(){
+'use strict';
 
 /* =========================
-   utilities
+   Configuration
    ========================= */
-function escapeHtml(s){ return (s||'').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
-function styleForRank(rank){
-  switch(rank){
-    case 'dedicated': return { color:'#7c3aed', weight:6 };
-    case 'good': return { color:'#16a34a', weight:6 };
-    case 'okay': return { color:'#f59e0b', weight:6 };
-    default: return { color:'#ef4444', weight:6 };
+const CONFIG = {
+  defaultCenter: [36.08, 140.11], // Tsukuba
+  defaultZoom: 12,
+  minZoomForBikePaths: 13,
+  minZoomForPOIs: 11,
+  debounceDelay: 800,
+  maxHistorySize: 50,
+  surfaceColors: {
+    paved: '#16a34a',
+    asphalt: '#16a34a',
+    concrete: '#22c55e',
+    gravel: '#f59e0b',
+    unpaved: '#f59e0b',
+    dirt: '#dc2626',
+    grass: '#84cc16',
+    unknown: '#9ca3af'
   }
-}
-
-/* =========================
-   Multi-segment routing (from second file)
-   ========================= */
-let routingOn=false, waypoints=[], waypointMarkers=[], previewLine=null;
-const btnFinish = document.createElement('button');
-btnFinish.textContent="Finish Route"; btnFinish.className="btn"; btnFinish.disabled=true; document.querySelector('.controls').appendChild(btnFinish);
-btnRoute.onclick=()=>{
-  routingOn=!routingOn;
-  if(!routingOn) clearRouting();
-  btnRoute.textContent=routingOn?"Routing ON (click points)":"Enable Routing";
 };
-btnFinish.onclick=()=>finishRoute();
-btnCancel.onclick=()=>clearRouting();
-
-map.on('click', e=>{
-  if(!routingOn) return;
-  waypoints.push(e.latlng);
-  const m = L.circleMarker(e.latlng,{radius:5,color:'black'}).addTo(map);
-  waypointMarkers.push(m);
-  btnCancel.disabled=false;
-  btnFinish.disabled=false;
-});
-
-map.on('mousemove', e=>{
-  if(routingOn && waypoints.length>0){
-    const latlngs=[...waypoints,e.latlng];
-    if(previewLine) previewLine.setLatLngs(latlngs);
-    else previewLine = L.polyline(latlngs,{color:'#888',weight:3,opacity:0.7,dashArray:'6,6'}).addTo(map);
-  }
-});
-
-async function finishRoute(){
-  if(waypoints.length<2){alert("Need at least 2 points"); return;}
-  if(previewLine){ map.removeLayer(previewLine); previewLine=null; }
-  const coords=waypoints.map(p=>`${p.lng},${p.lat}`).join(";");
-  const url=`https://router.project-osrm.org/route/v1/cycling/${coords}?geometries=geojson&overview=full`;
-  try{
-    const r=await fetch(url),d=await r.json();
-    if(d.routes && d.routes.length){
-      const c=d.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
-      const seg = L.polyline(c, styleForRank('good')).addTo(segmentsLayer);
-      seg.feature={type:'Feature',properties:{layerType:'segment',rank:'good',name:'New segment',notes:''},geometry:d.routes[0].geometry};
-      // elevation and popup
-      const distKm = (d.routes[0].distance/1000).toFixed(2);
-      computeElevationForCoords(c).then(stats=>bindSegmentPopupWithChart(seg, distKm, stats));
-    } else alert("No route found.");
-  }catch(e){alert("Route fetch failed."); console.error(e);}
-  clearRouting();
-}
-
-function clearRouting(){
-  waypoints=[]; waypointMarkers.forEach(m=>map.removeLayer(m)); waypointMarkers=[];
-  if(previewLine){map.removeLayer(previewLine); previewLine=null;}
-  btnCancel.disabled=true; btnFinish.disabled=true;
-}
-
 
 /* =========================
-   Elevation sampling & stats via Open-Elevation
-   - sample up to ~50 points along polyline
+   Utility Functions
    ========================= */
-async function computeElevationForCoords(latlngs){
-  // latlngs: array of [lat, lng]
-  // sample step to limit to ~50 points
-  const maxSamples = 50;
-  const step = Math.max(1, Math.floor(latlngs.length / maxSamples));
-  const sampled = latlngs.filter((_, i) => i % step === 0).map(p => ({ latitude: p[0], longitude: p[1] }));
-  if(sampled.length === 0) return { elevations:[], distances:[], gain:0, loss:0, sampled:[] };
+const Utils = {
+  escapeHtml(s) {
+    return (s || '').toString()
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  },
+  
+  debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  },
+  
+  formatDistance(meters) {
+    return (meters / 1000).toFixed(1);
+  },
+  
+  generateId() {
+    return 'id_' + Math.random().toString(36).substr(2, 9);
+  }
+};
 
-  // call Open-Elevation
-  try{
-    const resp = await fetch('https://api.open-elevation.com/api/v1/lookup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ locations: sampled })
-    });
-    const json = await resp.json();
-    const elevations = (json.results || []).map(r => r.elevation || 0);
-    // compute ascent/descent and cumulative distances
-    let gain = 0, loss = 0;
-    for(let i=1;i<elevations.length;i++){
-      const d = elevations[i] - elevations[i-1];
-      if(d>0) gain += d; else loss += -d;
+/* =========================
+   Toast Notification System
+   ========================= */
+const Toast = {
+  container: document.getElementById('toastContainer'),
+  
+  show(message, type = 'info', duration = 3000) {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    this.container.appendChild(toast);
+    
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(-10px)';
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  },
+  
+  success(msg) { this.show(msg, 'success'); },
+  error(msg) { this.show(msg, 'error', 5000); },
+  warning(msg) { this.show(msg, 'warning', 4000); }
+};
+
+/* =========================
+   Loading Spinner
+   ========================= */
+const Spinner = {
+  el: document.getElementById('spinner'),
+  count: 0,
+  
+  show() { 
+    this.count++;
+    this.el.classList.add('active'); 
+  },
+  
+  hide() { 
+    this.count = Math.max(0, this.count - 1);
+    if (this.count === 0) this.el.classList.remove('active'); 
+  }
+};
+
+/* =========================
+   History (Undo/Redo)
+   ========================= */
+const History = {
+  past: [],
+  future: [],
+  
+  push(state) {
+    this.past.push(JSON.parse(JSON.stringify(state)));
+    if (this.past.length > CONFIG.maxHistorySize) this.past.shift();
+    this.future = [];
+    this.updateButtons();
+  },
+  
+  undo() {
+    if (this.past.length === 0) return null;
+    const current = App.collectData();
+    this.future.push(current);
+    const prev = this.past.pop();
+    this.updateButtons();
+    return prev;
+  },
+  
+  redo() {
+    if (this.future.length === 0) return null;
+    const current = App.collectData();
+    this.past.push(current);
+    const next = this.future.pop();
+    this.updateButtons();
+    return next;
+  },
+  
+  updateButtons() {
+    document.getElementById('btnUndo').disabled = this.past.length === 0;
+    document.getElementById('btnRedo').disabled = this.future.length === 0;
+  }
+};
+
+/* =========================
+   Chart Manager
+   ========================= */
+const ChartManager = {
+  instances: {},
+  
+  create(id, ctx, config) {
+    this.destroy(id);
+    this.instances[id] = new Chart(ctx, config);
+    return this.instances[id];
+  },
+  
+  destroy(id) {
+    if (this.instances[id]) {
+      this.instances[id].destroy();
+      delete this.instances[id];
     }
-    // distances between sampled points
-    let dist = 0;
-    const distances = [0];
-    for(let i=1;i<sampled.length;i++){
-      const a = sampled[i-1], b = sampled[i];
-      const dx = (b.latitude - a.latitude) * 111320;
-      const dy = (b.longitude - a.longitude) * (40075000 * Math.cos(b.latitude * Math.PI/180) / 360);
-      dist += Math.sqrt(dx*dx + dy*dy);
-      distances.push((dist/1000).toFixed(3));
+  },
+  
+  destroyAll() {
+    Object.keys(this.instances).forEach(id => this.destroy(id));
+  }
+};
+
+/* =========================
+   Map Initialization
+   ========================= */
+const map = L.map('map', {
+  zoomControl: true,
+  attributionControl: true
+}).setView(CONFIG.defaultCenter, CONFIG.defaultZoom);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '© OSM contributors'
+}).addTo(map);
+
+// Try geolocation
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    pos => map.setView([pos.coords.latitude, pos.coords.longitude], 13),
+    () => {}
+  );
+}
+
+/* =========================
+   Layer Groups
+   ========================= */
+const Layers = {
+  segments: L.featureGroup().addTo(map),
+  userPOIs: L.featureGroup().addTo(map),
+  bikePaths: L.featureGroup().addTo(map),
+  toilets: L.markerClusterGroup({ maxClusterRadius: 50 }),
+  camps: L.markerClusterGroup({ maxClusterRadius: 50 }),
+  plannerPreview: L.featureGroup().addTo(map),
+  plannerStops: L.featureGroup().addTo(map),
+  
+  init() {
+    map.addLayer(this.toilets);
+    map.addLayer(this.camps);
+  },
+  
+  setVisible(layer, visible) {
+    if (visible) {
+      if (!map.hasLayer(layer)) map.addLayer(layer);
+    } else {
+      if (map.hasLayer(layer)) map.removeLayer(layer);
     }
-    return { elevations, distances, gain: Math.round(gain), loss: Math.round(loss), sampled };
-  }catch(err){
-    console.warn('Elevation fetch failed', err);
-    return { elevations: [], distances: [], gain:0, loss:0, sampled: [] };
   }
-}
-
-/* =========================
-   Segment popup: chart + CSV/GPX export + ranking + delete
-   ========================= */
-function bindSegmentPopupWithChart(layer, distKm, stats){
-  const props = layer.feature.properties || {};
-  const chartId = 'chart_' + Math.random().toString(36).slice(2,9);
-  const html = `<div class="popup-form">
-    <label>Name <input id="segName" value="${escapeHtml(props.name||'')}" /></label>
-    <label>Rank
-      <select id="segRank">
-        <option value="dedicated"${props.rank==='dedicated'?' selected':''}>Dedicated path</option>
-        <option value="good"${props.rank==='good'?' selected':''}>Good</option>
-        <option value="okay"${props.rank==='okay'?' selected':''}>Okay</option>
-        <option value="bad"${props.rank==='bad'?' selected':''}>Bad</option>
-      </select>
-    </label>
-    <label>Notes <textarea id="segNotes">${escapeHtml(props.notes||'')}</textarea></label>
-    <div style="margin-top:6px;font-size:13px"><b>Stats</b><br>
-      Distance: ${distKm} km<br>
-      Elev gain: ${stats.gain || 0} m<br>
-      Elev loss: ${stats.loss || 0} m<br>
-      Avg grade: ${ (stats.gain && distKm>0) ? ((stats.gain/(distKm*1000)*100).toFixed(2) + '%') : '—' }
-    </div>
-    <canvas id="${chartId}" width="300" height="120"></canvas>
-    <div class="popup-actions">
-      <button id="segSave" class="btn">Save</button>
-      <button id="segExportCSV" class="exportBtn">Export CSV</button>
-      <button id="segExportGPX" class="exportBtn">Export GPX</button>
-      <button id="segDelete" class="deleteBtn">Delete</button>
-    </div>
-  </div>`;
-  layer.bindPopup(html, { maxWidth:360 });
-  layer.on('popupopen', () => {
-    document.getElementById('segSave').onclick = () => {
-      props.name = document.getElementById('segName').value;
-      props.notes = document.getElementById('segNotes').value;
-      const newRank = document.getElementById('segRank').value;
-      props.rank = newRank;
-      layer.setStyle(styleForRank(newRank));
-      layer.closePopup();
-    };
-    document.getElementById('segDelete').onclick = () => {
-      segmentsLayer.removeLayer(layer);
-    };
-    // draw chart
-    if(stats.elevations && stats.elevations.length){
-      const ctx = document.getElementById(chartId);
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: stats.distances,
-          datasets: [{ label:'Elevation (m)', data: stats.elevations, fill:true, borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,0.15)', tension:0.2 }]
-        },
-        options: { plugins:{legend:{display:false}}, scales:{ x:{ title:{display:true,text:'Distance (km'}}, y:{ title:{display:true,text:'Elevation (m)'} } } }
-      });
-    }
-    // CSV export
-    document.getElementById('segExportCSV').onclick = () => {
-      const rows = ['latitude,longitude,elevation_m,distance_km'];
-      const s = stats.sampled || [];
-      for(let i=0;i<s.length;i++){
-        rows.push(`${s[i].latitude},${s[i].longitude},${(stats.elevations[i]||0)},${(stats.distances[i]||0)}`);
-      }
-      const blob = new Blob([rows.join('\n')], { type:'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = (props.name||'segment') + '.csv'; a.click(); URL.revokeObjectURL(url);
-    };
-    // GPX export
-    document.getElementById('segExportGPX').onclick = () => {
-      let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="CyclingMap">\n<trk><name>' + escapeHtml(props.name||'Segment') + '</name><trkseg>\n';
-      const s = stats.sampled || [];
-      for(let i=0;i<s.length;i++){
-        const ele = stats.elevations[i] || 0;
-        gpx += `<trkpt lat="${s[i].latitude}" lon="${s[i].longitude}"><ele>${ele}</ele></trkpt>\n`;
-      }
-      gpx += '</trkseg></trk>\n</gpx>';
-      const blob = new Blob([gpx], { type:'application/gpx+xml' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = (props.name||'segment') + '.gpx'; a.click(); URL.revokeObjectURL(url);
-    };
-  });
-}
-
-/* =========================
-   User POI handling (draw / ctrl+click / draggable)
-   ========================= */
-// Draw tool for adding POIs
-const drawControl = new L.Control.Draw({
-  draw: { polygon:false, polyline:false, rectangle:false, circle:false, circlemarker:false, marker:true },
-  edit: { featureGroup: userPoisLayer, remove: true }
-});
-map.addControl(drawControl);
-
-// helper to add a user POI
-function addUserPOI(latlng, category='bike_shop', properties={}){
-  const marker = L.marker(latlng, { draggable: true });
-  const props = Object.assign({ category: category, name: 'New POI', notes: '' }, properties);
-  marker.feature = { type:'Feature', properties: props, geometry: { type:'Point', coordinates: [latlng.lng, latlng.lat] } };
-  // add to category group and master
-  poiGroups[category].addLayer(marker);
-  userPoisLayer.addLayer(marker);
-  bindUserPoiPopup(marker);
-  // draggable -> update geometry on dragend
-  marker.on('dragend', () => {
-    const ll = marker.getLatLng();
-    marker.feature.geometry.coordinates = [ll.lng, ll.lat];
-  });
-  refreshUserPoisMaster();
-  return marker;
-}
-
-map.on(L.Draw.Event.CREATED, function(e){
-  if(e.layer && e.layer instanceof L.Marker){
-    const marker = e.layer;
-    addUserPOI(marker.getLatLng(), 'bike_shop', { name:'New POI' });
-  }
-});
-
-// ctrl+click quick add default bike_shop
-map.on('click', e => {
-  if(e.originalEvent && e.originalEvent.ctrlKey){
-    addUserPOI(e.latlng, 'bike_shop', { name:'New POI' });
-  }
-});
-
-// popup for user POI
-function bindUserPoiPopup(marker){
-  marker.on('click', () => {
-    const props = marker.feature.properties || {};
-    const html = `<div class="popup-form">
-      <label>Name <input id="poiName" value="${escapeHtml(props.name||'')}" /></label>
-      <label>Category
-        <select id="poiCat">
-          <option value="toilet"${props.category==='toilet'?' selected':''}>Toilet</option>
-          <option value="campground"${props.category==='campground'?' selected':''}>Campground</option>
-          <option value="bike_shop"${props.category==='bike_shop'?' selected':''}>Bike shop</option>
-          <option value="water"${props.category==='water'?' selected':''}>Water</option>
-        </select>
-      </label>
-      <label>Notes <textarea id="poiNotes">${escapeHtml(props.notes||'')}</textarea></label>
-      <div class="popup-actions">
-        <button id="poiSave" class="btn">Save</button>
-        <button id="poiDelete" class="deleteBtn">Delete</button>
-      </div>
-    </div>`;
-    marker.bindPopup(html, { maxWidth:320 }).openPopup();
-    marker.once('popupopen', () => {
-      document.getElementById('poiSave').onclick = () => {
-        props.name = document.getElementById('poiName').value;
-        props.category = document.getElementById('poiCat').value;
-        props.notes = document.getElementById('poiNotes').value;
-        // move to correct category group
-        Object.values(poiGroups).forEach(g => { if(g.hasLayer(marker)) g.removeLayer(marker); });
-        poiGroups[props.category].addLayer(marker);
-        refreshUserPoisMaster();
-        marker.closePopup();
-      };
-      document.getElementById('poiDelete').onclick = () => {
-        removeUserPoi(marker);
-      };
-    });
-  });
-}
-
-function removeUserPoi(marker){
-  Object.values(poiGroups).forEach(g => { if(g.hasLayer(marker)) g.removeLayer(marker); });
-  if(userPoisLayer.hasLayer(marker)) userPoisLayer.removeLayer(marker);
-  refreshUserPoisMaster();
-}
-
-function refreshUserPoisMaster(){
-  userPoisLayer.clearLayers();
-  Object.values(poiGroups).forEach(g => {
-    g.eachLayer(l => userPoisLayer.addLayer(l));
-  });
-}
-
-/* =========================
-   Fetch toilets & campgrounds (Overpass)
-   and show in clusters; auto-refresh on moveend
-   ========================= */
-async function fetchOverpass(query){
-  const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
-  const resp = await fetch(url);
-  return resp.json();
-}
-
-async function updateToilets(){
-  const b = map.getBounds();
-  const query = `[out:json][timeout:25];node["amenity"="toilets"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});out;`;
-  try{
-    const json = await fetchOverpass(query);
-    toiletsCluster.clearLayers();
-    (json.elements || []).forEach(el => {
-      if(!el.lat || !el.lon) return;
-      const m = L.marker([el.lat, el.lon], { title: el.tags?.name || 'Public Toilet' });
-      m.feature = { type:'Feature', properties: { layerType:'toilet', name: el.tags?.name || 'Public Toilet' }, geometry: { type:'Point', coordinates: [el.lon, el.lat] } };
-      m.bindPopup(`<b>${escapeHtml(m.feature.properties.name)}</b>`);
-      toiletsCluster.addLayer(m);
-    });
-  }catch(e){ console.warn('Toilet Overpass error', e); }
-}
-
-async function updateCamps(){
-  const b = map.getBounds();
-  const query = `[out:json][timeout:25];node["tourism"="camp_site"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});out;`;
-  try{
-    const json = await fetchOverpass(query);
-    campsCluster.clearLayers();
-    (json.elements || []).forEach(el => {
-      if(!el.lat || !el.lon) return;
-      const m = L.marker([el.lat, el.lon], { title: el.tags?.name || 'Campground' });
-      m.feature = { type:'Feature', properties: { layerType:'campground', name: el.tags?.name || 'Campground' }, geometry: { type:'Point', coordinates: [el.lon, el.lat] } };
-      m.bindPopup(`<b>${escapeHtml(m.feature.properties.name)}</b>`);
-      campsCluster.addLayer(m);
-    });
-  }catch(e){ console.warn('Camps Overpass error', e); }
-}
-
-// initial fetch & on moveend
-map.on('moveend', () => {
-  updateToilets();
-  updateCamps();
-});
-updateToilets(); updateCamps();
-
-/* =========================
-   Filters & layer toggles
-   ========================= */
-function setVisible(layer, visible){
-  if(visible){ if(!map.hasLayer(layer)) map.addLayer(layer); }
-  else { if(map.hasLayer(layer)) map.removeLayer(layer); }
-}
-
-document.getElementById('toggleSegments').addEventListener('change', e => setVisible(segmentsLayer, e.target.checked));
-document.getElementById('toggleUserPOIs').addEventListener('change', e => setVisible(userPoisLayer, e.target.checked));
-document.getElementById('toggleToilets').addEventListener('change', e => setVisible(toiletsCluster, e.target.checked));
-document.getElementById('toggleCamps').addEventListener('change', e => setVisible(campsCluster, e.target.checked));
-
-// POI category filters
-function applyPoiCategoryFilters(){
-  const boxes = document.querySelectorAll('.poi-filter');
-  const active = {};
-  boxes.forEach(b => active[b.value] = b.checked);
-  // user poi groups
-  Object.keys(poiGroups).forEach(cat => {
-    if(active[cat]) { if(!map.hasLayer(poiGroups[cat])) map.addLayer(poiGroups[cat]); }
-    else { if(map.hasLayer(poiGroups[cat])) map.removeLayer(poiGroups[cat]); }
-  });
-  // fetched clusters: toilets -> category toilet, camps -> campground
-  if(active['toilet']) { if(!map.hasLayer(toiletsCluster)) map.addLayer(toiletsCluster); }
-  else { if(map.hasLayer(toiletsCluster)) map.removeLayer(toiletsCluster); }
-  if(active['campground']) { if(!map.hasLayer(campsCluster)) map.addLayer(campsCluster); }
-  else { if(map.hasLayer(campsCluster)) map.removeLayer(campsCluster); }
-}
-document.querySelectorAll('.poi-filter').forEach(cb => cb.addEventListener('change', applyPoiCategoryFilters));
-applyPoiCategoryFilters();
-
-/* =========================
-   Search nearby (Overpass) for bike_shop or drinking_water
-   ========================= */
-document.getElementById('btnSearchNearby').addEventListener('click', async () => {
-  const type = document.getElementById('searchType').value;
-  const b = map.getBounds();
-  // Overpass key: amenity=drinking_water for water; shop=bicycle or shop=bikes? use shop=bicycle and shop=bicycle_repair? we'll query bike_shop by tourism? use shop=bicycle and amenity=bicycle_rental and shop=bicycle_repair? But simplest: shop=bicycle and shop=bicycle_repair and shop=repair_bicycle and shop=bike_shop (some tags vary). We'll use shop=bicycle OR shop=bike OR shop=bicycle_repair OR shop=repair_bicycle OR shop=bicycle_shop OR shop=bike_shop
-  let query;
-  if(type === 'drinking_water'){
-    query = `[out:json][timeout:25];node["amenity"="drinking_water"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});out;`;
-  } else { // bike_shop
-    query = `[out:json][timeout:25];(node["shop"="bicycle"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});node["shop"="bike_shop"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});node["shop"="bicycle_repair"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}););out;`;
-  }
-  try{
-    const json = await fetchOverpass(query);
-    searchCluster.clearLayers();
-    (json.elements || []).forEach(el => {
-      if(!el.lat || !el.lon) return;
-      const m = L.marker([el.lat, el.lon], { draggable: true });
-      const name = el.tags?.name || (type === 'drinking_water' ? 'Water source' : 'Bike shop');
-      m.feature = { type:'Feature', properties: { category: (type==='drinking_water' ? 'water' : 'bike_shop'), name }, geometry: { type:'Point', coordinates:[el.lon, el.lat] } };
-      m.bindPopup(`<b>${escapeHtml(name)}</b><div class="popup-actions"><button class="btn" id="saveToUser">Add to my POIs</button></div>`);
-      m.on('popupopen', () => {
-        const btn = document.getElementById('saveToUser');
-        if(btn) btn.onclick = () => {
-          addUserPOI(m.getLatLng(), m.feature.properties.category, { name });
-          searchCluster.removeLayer(m);
-        };
-      });
-      searchCluster.addLayer(m);
-    });
-    map.addLayer(searchCluster);
-    if((json.elements || []).length === 0) alert('No results found in the current map view.');
-  }catch(e){ console.warn('Search Overpass failure', e); alert('Search failed'); }
-});
-
-/* =========================
-   Persistence: save/load/export/import all user data
-   - segments (GeoJSON)
-   - user POIs (GeoJSON)
-   ========================= */
-function collectDataForSave(){
-  const segs = segmentsLayer.toGeoJSON();
-  const pois = userPoisLayer.toGeoJSON();
-  return { segments: segs, pois: pois };
-}
-document.getElementById('btnSave').onclick = () => {
-  const data = collectDataForSave();
-  localStorage.setItem('cycling_map_data_v1', JSON.stringify(data));
-  alert('Saved to localStorage.');
 };
-document.getElementById('btnLoad').onclick = () => {
-  const raw = localStorage.getItem('cycling_map_data_v1');
-  if(!raw){ alert('No saved data in localStorage.'); return; }
-  try{
-    const data = JSON.parse(raw);
-    loadDataIntoMap(data);
-    alert('Loaded from localStorage.');
-  }catch(e){ alert('Failed to load.'); }
-};
-document.getElementById('btnExportAll').onclick = () => {
-  const data = collectDataForSave();
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = 'cycling_map_data.json'; a.click(); URL.revokeObjectURL(url);
-};
-document.getElementById('importFile').onchange = (ev) => {
-  const f = ev.target.files[0];
-  if(!f) return;
-  const r = new FileReader();
-  r.onload = e => {
-    try{
-      const data = JSON.parse(e.target.result);
-      loadDataIntoMap(data);
-      alert('Imported data.');
-    }catch(err){ alert('Invalid file'); }
+
+Layers.init();
+
+/* =========================
+   Styling
+   ========================= */
+function styleForRank(rank) {
+  const styles = {
+    dedicated: { color: '#7c3aed', weight: 5, opacity: 0.9 },
+    good: { color: '#16a34a', weight: 5, opacity: 0.9 },
+    okay: { color: '#f59e0b', weight: 5, opacity: 0.9 },
+    bad: { color: '#ef4444', weight: 5, opacity: 0.9 }
   };
-  r.readAsText(f);
+  return styles[rank] || styles.good;
+}
+
+function createMarkerIcon(type) {
+  const config = {
+    toilet: { color: '#3b82f6', icon: '🚻' },
+    campground: { color: '#16a34a', icon: '⛺' },
+    michinoeki: { color: '#f97316', icon: '🅿️' }
+  };
+  
+  const c = config[type] || { color: '#6b7280', icon: '📍' };
+  
+  return L.divIcon({
+    html: `<div style="
+      background: ${c.color};
+      width: 26px;
+      height: 26px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      border: 2px solid white;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    "><span style="transform: rotate(45deg); font-size: 12px;">${c.icon}</span></div>`,
+    className: '',
+    iconSize: [26, 26],
+    iconAnchor: [13, 26]
+  });
+}
+
+/* =========================
+   Overpass API
+   ========================= */
+const Overpass = {
+  baseUrl: 'https://overpass-api.de/api/interpreter',
+  
+  async fetch(query) {
+    const url = `${this.baseUrl}?data=${encodeURIComponent(query)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('Overpass API error');
+    return resp.json();
+  }
 };
 
-function loadDataIntoMap(data){
-  // clear existing
-  segmentsLayer.clearLayers();
-  Object.values(poiGroups).forEach(g => g.clearLayers());
-  userPoisLayer.clearLayers();
-
-  // load segments
-  if(data.segments && data.segments.features){
-    L.geoJSON(data.segments, {
-      onEachFeature: (feature, layer) => {
-        // layer may be a polyline
-        layer.feature = feature;
-        const rank = feature.properties && feature.properties.rank ? feature.properties.rank : 'good';
-        layer.setStyle(styleForRank(rank));
-        segmentsLayer.addLayer(layer);
-        // if geometry is available, compute elevation for popup (async)
-        const coords = (feature.geometry && feature.geometry.coordinates) ? feature.geometry.coordinates.map(c => [c[1], c[0]]) : null;
-        if(coords){
-          computeElevationForCoords(coords).then(stats => {
-            bindSegmentPopupWithChart(layer, ((feature.properties && feature.properties.distance_km) ? feature.properties.distance_km : '—'), stats);
-          });
+/* =========================
+   POI Data Loaders
+   ========================= */
+const POILoaders = {
+  // Toilets + Michi no Eki combined query
+  toilets: Utils.debounce(async function() {
+    const zoom = map.getZoom();
+    if (zoom < CONFIG.minZoomForPOIs) {
+      Layers.toilets.clearLayers();
+      return;
+    }
+    
+    const b = map.getBounds();
+    // Combined query for toilets AND Michi no Eki (which always have toilets)
+    const query = `[out:json][timeout:30];(
+      node["amenity"="toilets"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      way["amenity"="toilets"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      node["toilets"="yes"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      node["highway"="rest_area"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      way["highway"="rest_area"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      node["highway"="services"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      way["highway"="services"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      node["name"~"道の駅",i](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      way["name"~"道の駅",i](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+    );out center;`;
+    
+    try {
+      const json = await Overpass.fetch(query);
+      Layers.toilets.clearLayers();
+      
+      const seen = new Set();
+      (json.elements || []).forEach(el => {
+        const lat = el.lat || el.center?.lat;
+        const lon = el.lon || el.center?.lon;
+        if (!lat || !lon) return;
+        
+        const key = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        
+        const tags = el.tags || {};
+        const isMichiNoEki = tags.highway === 'rest_area' || tags.highway === 'services' || 
+                            (tags.name && tags.name.includes('道の駅'));
+        
+        const name = tags.name || tags['name:en'] || (isMichiNoEki ? 'Rest Stop' : 'Public Toilet');
+        const icon = isMichiNoEki ? 'michinoeki' : 'toilet';
+        const emoji = isMichiNoEki ? '🅿️' : '🚻';
+        
+        const m = L.marker([lat, lon], { icon: createMarkerIcon(icon) });
+        
+        // Store data for adding to planner
+        m.poiData = {
+          type: isMichiNoEki ? 'reststop' : 'toilet',
+          name,
+          lat,
+          lon
+        };
+        
+        let popup = `<b>${emoji} ${Utils.escapeHtml(name)}</b>`;
+        if (isMichiNoEki) {
+          popup += '<br><span style="font-size:11px;color:#666">24hr parking & toilets</span>';
+        }
+        if (tags.website) popup += `<br><a href="${Utils.escapeHtml(tags.website)}" target="_blank">Website</a>`;
+        popup += `<br><button class="btn sm" style="margin-top:8px" onclick="window.addPOIToPlanner(${lat},${lon},'${Utils.escapeHtml(name).replace(/'/g, "\\'")}','${icon}')">📋 Add to Plan</button>`;
+        
+        m.bindPopup(popup);
+        Layers.toilets.addLayer(m);
+      });
+    } catch(e) {
+      console.warn('Toilet fetch error:', e);
+    }
+  }, CONFIG.debounceDelay),
+  
+  // Campgrounds - expanded query for Japan
+  camps: Utils.debounce(async function() {
+    const zoom = map.getZoom();
+    if (zoom < CONFIG.minZoomForPOIs) {
+      Layers.camps.clearLayers();
+      return;
+    }
+    
+    const b = map.getBounds();
+    const query = `[out:json][timeout:30];(
+      node["tourism"="camp_site"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      way["tourism"="camp_site"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      relation["tourism"="camp_site"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      node["tourism"="caravan_site"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      way["tourism"="caravan_site"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      node["leisure"="park"]["camping"="yes"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      way["leisure"="park"]["camping"="yes"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      node["camp_site"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      node["tents"="yes"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      way["tents"="yes"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+    );out center;`;
+    
+    try {
+      const json = await Overpass.fetch(query);
+      Layers.camps.clearLayers();
+      
+      const seen = new Set();
+      (json.elements || []).forEach(el => {
+        const lat = el.lat || el.center?.lat;
+        const lon = el.lon || el.center?.lon;
+        if (!lat || !lon) return;
+        
+        const key = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        
+        const tags = el.tags || {};
+        const name = tags.name || tags['name:en'] || tags['name:ja'] || 'Campground';
+        const m = L.marker([lat, lon], { icon: createMarkerIcon('campground') });
+        
+        let popup = `<b>⛺ ${Utils.escapeHtml(name)}</b>`;
+        if (tags.website) popup += `<br><a href="${Utils.escapeHtml(tags.website)}" target="_blank">Website</a>`;
+        if (tags.phone) popup += `<br>📞 ${Utils.escapeHtml(tags.phone)}`;
+        popup += `<br><button class="btn sm" style="margin-top:8px" onclick="window.addPOIToPlanner(${lat},${lon},'${Utils.escapeHtml(name).replace(/'/g, "\\'")}','campground')">📋 Add to Plan</button>`;
+        
+        m.bindPopup(popup);
+        Layers.camps.addLayer(m);
+      });
+    } catch(e) {
+      console.warn('Camps fetch error:', e);
+    }
+  }, CONFIG.debounceDelay),
+  
+  // Bike infrastructure
+  bikePaths: Utils.debounce(async function() {
+    const zoom = map.getZoom();
+    if (zoom < CONFIG.minZoomForBikePaths) {
+      Layers.bikePaths.clearLayers();
+      return;
+    }
+    
+    const b = map.getBounds();
+    const query = `[out:json][timeout:30];(
+      way["highway"="cycleway"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      way["highway"="path"]["bicycle"="designated"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      way["cycleway"="track"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      way["cycleway"="lane"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      way["cycleway:both"~"track|lane"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+      way["bicycle_road"="yes"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});
+    );out geom;`;
+    
+    try {
+      const json = await Overpass.fetch(query);
+      Layers.bikePaths.clearLayers();
+      
+      (json.elements || []).forEach(el => {
+        if (!el.geometry || el.geometry.length < 2) return;
+        
+        const coords = el.geometry.map(g => [g.lat, g.lon]);
+        const tags = el.tags || {};
+        
+        let style;
+        if (tags.highway === 'cycleway') {
+          style = { color: '#0ea5e9', weight: 3.5, opacity: 0.8 };
+        } else if (tags.cycleway === 'lane') {
+          style = { color: '#14b8a6', weight: 2.5, opacity: 0.7, dashArray: '6,4' };
         } else {
-          bindSegmentPopupWithChart(layer, (feature.properties && feature.properties.distance_km) ? feature.properties.distance_km : '—', { elevations:[], distances:[], sampled:[], gain:0, loss:0 });
+          style = { color: '#06b6d4', weight: 3, opacity: 0.75 };
+        }
+        
+        const line = L.polyline(coords, style);
+        const name = tags.name || tags.ref || 'Bike path';
+        line.bindPopup(`<b>🚴 ${Utils.escapeHtml(name)}</b>`);
+        Layers.bikePaths.addLayer(line);
+      });
+    } catch(e) {
+      console.warn('Bike paths fetch error:', e);
+    }
+  }, CONFIG.debounceDelay + 500)
+};
+
+/* =========================
+   Routing Services
+   ========================= */
+const Router = {
+  async brouter(waypoints, profile = 'trekking') {
+    const lonlats = waypoints.map(p => `${p.lng},${p.lat}`).join('|');
+    const url = `https://brouter.de/brouter?lonlats=${lonlats}&profile=${profile}&alternativeidx=0&format=geojson`;
+    
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('BRouter error');
+    
+    const geojson = await resp.json();
+    if (!geojson.features?.length) throw new Error('No route');
+    
+    const feature = geojson.features[0];
+    const coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
+    const distance = (feature.properties['track-length'] || 0) / 1000;
+    
+    return { coords, distance: distance.toFixed(2), properties: feature.properties };
+  },
+  
+  async osrm(waypoints) {
+    const coords = waypoints.map(p => `${p.lng},${p.lat}`).join(';');
+    const url = `https://router.project-osrm.org/route/v1/cycling/${coords}?geometries=geojson&overview=full`;
+    
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('OSRM error');
+    
+    const data = await resp.json();
+    if (!data.routes?.length) throw new Error('No route');
+    
+    const route = data.routes[0];
+    const coords2 = route.geometry.coordinates.map(c => [c[1], c[0]]);
+    
+    return { coords: coords2, distance: (route.distance / 1000).toFixed(2) };
+  },
+  
+  async route(waypoints, profile = 'quiet') {
+    try {
+      if (profile === 'quiet') {
+        return await this.brouter(waypoints, 'trekking');
+      } else if (profile === 'fast') {
+        return await this.brouter(waypoints, 'fastbike');
+      } else {
+        return await this.osrm(waypoints);
+      }
+    } catch(e) {
+      console.warn('Primary routing failed, trying fallback:', e);
+      return await this.osrm(waypoints);
+    }
+  }
+};
+
+/* =========================
+   Elevation Service
+   ========================= */
+const Elevation = {
+  async fetch(coords) {
+    const maxSamples = 50;
+    const step = Math.max(1, Math.floor(coords.length / maxSamples));
+    const sampled = coords.filter((_, i) => i % step === 0).map(c => ({
+      latitude: Array.isArray(c) ? c[0] : c.lat,
+      longitude: Array.isArray(c) ? c[1] : c.lng
+    }));
+    
+    if (sampled.length === 0) return { elevations: [], distances: [], gain: 0, loss: 0, sampled: [] };
+    
+    try {
+      const resp = await fetch('https://api.open-elevation.com/api/v1/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locations: sampled })
+      });
+      
+      const json = await resp.json();
+      const elevations = (json.results || []).map(r => r.elevation || 0);
+      
+      let gain = 0, loss = 0;
+      for (let i = 1; i < elevations.length; i++) {
+        const d = elevations[i] - elevations[i - 1];
+        if (d > 0) gain += d;
+        else loss += -d;
+      }
+      
+      const distances = [0];
+      let dist = 0;
+      for (let i = 1; i < sampled.length; i++) {
+        const a = sampled[i - 1], b = sampled[i];
+        const dx = (b.latitude - a.latitude) * 111320;
+        const dy = (b.longitude - a.longitude) * (40075000 * Math.cos(b.latitude * Math.PI / 180) / 360);
+        dist += Math.sqrt(dx * dx + dy * dy) / 1000;
+        distances.push(dist.toFixed(2));
+      }
+      
+      return { elevations, distances, gain: Math.round(gain), loss: Math.round(loss), sampled };
+    } catch(e) {
+      console.warn('Elevation fetch error:', e);
+      return { elevations: [], distances: [], gain: 0, loss: 0, sampled: [] };
+    }
+  }
+};
+
+/* =========================
+   Ride Planner
+   ========================= */
+const RidePlanner = {
+  items: [], // Can be segments OR stops (POIs)
+  connectorRoutes: [],
+  isOpen: false,
+  chart: null,
+  
+  init() {
+    this.listEl = document.getElementById('plannerSegmentList');
+    this.setupDragDrop();
+  },
+  
+  toggle(show) {
+    const panel = document.getElementById('ridePlanner');
+    this.isOpen = show !== undefined ? show : !this.isOpen;
+    panel.classList.toggle('collapsed', !this.isOpen);
+    
+    if (this.isOpen) {
+      this.updateUI();
+    }
+  },
+  
+  // Add a route segment
+  addSegment(layer) {
+    const feature = layer.feature;
+    if (!feature) return;
+    
+    const id = feature.properties?.id || Utils.generateId();
+    feature.properties = feature.properties || {};
+    feature.properties.id = id;
+    
+    // Check if already in planner
+    if (this.items.find(s => s.id === id)) {
+      Toast.warning('Already in plan');
+      return;
+    }
+    
+    const coords = layer.getLatLngs();
+    let distance = 0;
+    for (let i = 1; i < coords.length; i++) {
+      distance += coords[i - 1].distanceTo(coords[i]);
+    }
+    
+    this.items.push({
+      type: 'segment',
+      id,
+      layer,
+      name: feature.properties.name || 'Unnamed segment',
+      distance: distance / 1000,
+      rank: feature.properties.rank || 'good',
+      surface: feature.properties.surface || 'unknown',
+      coords
+    });
+    
+    this.updateUI();
+    this.calculateConnectors();
+    Toast.success('Segment added to plan');
+  },
+  
+  // Add a POI stop (toilet, campground, etc)
+  addStop(lat, lon, name, iconType) {
+    const id = Utils.generateId();
+    
+    // Check for duplicates by location
+    const existing = this.items.find(i => 
+      i.type === 'stop' && 
+      Math.abs(i.lat - lat) < 0.0001 && 
+      Math.abs(i.lon - lon) < 0.0001
+    );
+    if (existing) {
+      Toast.warning('Stop already in plan');
+      return;
+    }
+    
+    // Create a marker on the planner stops layer
+    const marker = L.marker([lat, lon], {
+      icon: createMarkerIcon(iconType),
+      zIndexOffset: 1000
+    }).addTo(Layers.plannerStops);
+    
+    marker.bindPopup(`<b>📍 ${Utils.escapeHtml(name)}</b><br><span style="color:#666">Stop on route</span>`);
+    
+    this.items.push({
+      type: 'stop',
+      id,
+      name,
+      iconType,
+      lat,
+      lon,
+      marker,
+      coords: [[lat, lon]] // Single point for routing
+    });
+    
+    this.updateUI();
+    this.calculateConnectors();
+    Toast.success('Stop added to plan');
+  },
+  
+  removeItem(id) {
+    const idx = this.items.findIndex(s => s.id === id);
+    if (idx > -1) {
+      const item = this.items[idx];
+      // Remove marker if it's a stop
+      if (item.type === 'stop' && item.marker) {
+        Layers.plannerStops.removeLayer(item.marker);
+      }
+      this.items.splice(idx, 1);
+      this.updateUI();
+      this.calculateConnectors();
+    }
+  },
+  
+  moveItem(fromIdx, toIdx) {
+    if (fromIdx === toIdx) return;
+    const [item] = this.items.splice(fromIdx, 1);
+    this.items.splice(toIdx, 0, item);
+    this.updateUI();
+    this.calculateConnectors();
+  },
+  
+  clear() {
+    // Remove stop markers
+    this.items.filter(i => i.type === 'stop').forEach(i => {
+      if (i.marker) Layers.plannerStops.removeLayer(i.marker);
+    });
+    this.items = [];
+    this.connectorRoutes = [];
+    Layers.plannerPreview.clearLayers();
+    Layers.plannerStops.clearLayers();
+    this.updateUI();
+  },
+  
+  setupDragDrop() {
+    let draggedItem = null;
+    let draggedIdx = -1;
+    
+    this.listEl.addEventListener('dragstart', (e) => {
+      if (e.target.classList.contains('segment-item')) {
+        draggedItem = e.target;
+        draggedIdx = parseInt(e.target.dataset.index);
+        e.target.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      }
+    });
+    
+    this.listEl.addEventListener('dragend', (e) => {
+      if (draggedItem) {
+        draggedItem.classList.remove('dragging');
+        draggedItem = null;
+      }
+    });
+    
+    this.listEl.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const item = e.target.closest('.segment-item');
+      if (item && item !== draggedItem) {
+        const rect = item.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const targetIdx = parseInt(item.dataset.index);
+        
+        if (e.clientY < midY) {
+          item.style.borderTop = '2px solid var(--accent)';
+          item.style.borderBottom = '';
+        } else {
+          item.style.borderBottom = '2px solid var(--accent)';
+          item.style.borderTop = '';
         }
       }
     });
-  }
-
-  // load POIs
-  if(data.pois && data.pois.features){
-    data.pois.features.forEach(f => {
-      const coords = f.geometry && f.geometry.coordinates ? [f.geometry.coordinates[1], f.geometry.coordinates[0]] : null;
-      const props = f.properties || {};
-      if(coords){
-        const cat = props.category || 'bike_shop';
-        addUserPOI(L.latLng(coords[0], coords[1]), cat, props);
+    
+    this.listEl.addEventListener('dragleave', (e) => {
+      const item = e.target.closest('.segment-item');
+      if (item) {
+        item.style.borderTop = '';
+        item.style.borderBottom = '';
       }
     });
+    
+    this.listEl.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const item = e.target.closest('.segment-item');
+      if (item && draggedItem && item !== draggedItem) {
+        item.style.borderTop = '';
+        item.style.borderBottom = '';
+        
+        const targetIdx = parseInt(item.dataset.index);
+        const rect = item.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const insertIdx = e.clientY < midY ? targetIdx : targetIdx + 1;
+        
+        this.moveItem(draggedIdx, insertIdx > draggedIdx ? insertIdx - 1 : insertIdx);
+      }
+    });
+  },
+  
+  updateUI() {
+    // Update items list
+    if (this.items.length === 0) {
+      this.listEl.innerHTML = `
+        <li class="segment-list-empty">
+          <div style="font-size:24px;margin-bottom:8px">🗺️</div>
+          <div><b>Plan your ride</b></div>
+          <div style="margin-top:6px;opacity:0.8">
+            • Click route segments to add them<br>
+            • Add stops from POI popups<br>
+            • Drag to reorder
+          </div>
+        </li>`;
+    } else {
+      this.listEl.innerHTML = this.items.map((item, idx) => {
+        const isStop = item.type === 'stop';
+        const icon = isStop ? this.getStopIcon(item.iconType) : '🛤️';
+        const meta = isStop ? 'Stop' : `${item.distance.toFixed(1)} km • ${item.rank}`;
+        const bgColor = isStop ? 'var(--gray-50)' : '#fff';
+        
+        return `
+          <li class="segment-item" draggable="true" data-index="${idx}" data-id="${item.id}" style="background:${bgColor}">
+            <span class="drag-handle">☰</span>
+            <span style="font-size:16px">${icon}</span>
+            <div class="segment-info">
+              <div class="segment-name">${Utils.escapeHtml(item.name)}</div>
+              <div class="segment-meta">${meta}</div>
+            </div>
+            <button class="segment-remove" data-id="${item.id}">✕</button>
+          </li>
+        `;
+      }).join('');
+      
+      // Add remove handlers
+      this.listEl.querySelectorAll('.segment-remove').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          this.removeItem(btn.dataset.id);
+        };
+      });
+    }
+    
+    // Update buttons
+    const hasItems = this.items.length > 0;
+    document.getElementById('btnExportPlanGPX').disabled = !hasItems;
+    document.getElementById('btnAutoRoute').disabled = this.items.length < 2;
+  },
+  
+  getStopIcon(iconType) {
+    const icons = {
+      toilet: '🚻',
+      michinoeki: '🅿️',
+      campground: '⛺',
+      poi: '📍'
+    };
+    return icons[iconType] || '📍';
+  },
+  
+  async updateStats() {
+    let totalDistance = 0;
+    const allCoords = [];
+    const surfaceBreakdown = {};
+    let segmentCount = 0;
+    let stopCount = 0;
+    
+    // Collect all coords and distances from segments
+    for (const item of this.items) {
+      if (item.type === 'segment') {
+        totalDistance += item.distance || 0;
+        segmentCount++;
+        
+        // Track surface types
+        const surface = item.surface || 'unknown';
+        surfaceBreakdown[surface] = (surfaceBreakdown[surface] || 0) + item.distance;
+        
+        // Collect coords for elevation
+        item.coords.forEach(c => {
+          allCoords.push(Array.isArray(c) ? c : [c.lat, c.lng]);
+        });
+      } else if (item.type === 'stop') {
+        stopCount++;
+        allCoords.push([item.lat, item.lon]);
+      }
+    }
+    
+    // Add connector distances
+    this.connectorRoutes.forEach(c => {
+      totalDistance += parseFloat(c.distance) || 0;
+      // Add connector coords for elevation
+      if (c.coords) {
+        c.coords.forEach(coord => {
+          allCoords.push(Array.isArray(coord) ? coord : [coord.lat, coord.lng]);
+        });
+      }
+    });
+    
+    // Update display
+    document.getElementById('statDistance').textContent = totalDistance.toFixed(1);
+    
+    // Fetch elevation if we have coords
+    if (allCoords.length > 0) {
+      const elevData = await Elevation.fetch(allCoords);
+      document.getElementById('statElevGain').textContent = elevData.gain;
+      document.getElementById('statElevLoss').textContent = elevData.loss;
+      
+      // Update elevation chart
+      this.updateElevationChart(elevData);
+    } else {
+      document.getElementById('statElevGain').textContent = '0';
+      document.getElementById('statElevLoss').textContent = '0';
+    }
+    
+    // Update surface breakdown
+    this.updateSurfaceBreakdown(surfaceBreakdown, totalDistance);
+  },
+  
+  updateSurfaceBreakdown(breakdown, total) {
+    const bar = document.getElementById('surfaceBar');
+    const legend = document.getElementById('surfaceLegend');
+    
+    if (total === 0) {
+      bar.innerHTML = '';
+      legend.innerHTML = '';
+      return;
+    }
+    
+    let barHTML = '';
+    let legendHTML = '';
+    
+    Object.entries(breakdown).forEach(([surface, dist]) => {
+      const pct = (dist / total * 100).toFixed(1);
+      const color = CONFIG.surfaceColors[surface] || CONFIG.surfaceColors.unknown;
+      barHTML += `<div class="surface-bar-segment" style="width:${pct}%;background:${color}"></div>`;
+      legendHTML += `<span class="surface-legend-item"><span class="dot" style="background:${color}"></span>${surface} ${pct}%</span>`;
+    });
+    
+    bar.innerHTML = barHTML;
+    legend.innerHTML = legendHTML;
+  },
+  
+  updateElevationChart(data) {
+    const ctx = document.getElementById('plannerElevationChart');
+    
+    if (!data.elevations?.length) {
+      ChartManager.destroy('planner');
+      return;
+    }
+    
+    ChartManager.create('planner', ctx, {
+      type: 'line',
+      data: {
+        labels: data.distances,
+        datasets: [{
+          data: data.elevations,
+          fill: true,
+          borderColor: '#7c3aed',
+          backgroundColor: 'rgba(124,58,237,0.1)',
+          tension: 0.3,
+          pointRadius: 0,
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { 
+            display: true,
+            title: { display: true, text: 'km', font: { size: 9 } },
+            ticks: { font: { size: 8 }, maxTicksLimit: 6 }
+          },
+          y: { 
+            display: true,
+            title: { display: true, text: 'm', font: { size: 9 } },
+            ticks: { font: { size: 8 }, maxTicksLimit: 4 }
+          }
+        }
+      }
+    });
+  },
+  
+  async calculateConnectors() {
+    // Clear existing connectors
+    Layers.plannerPreview.clearLayers();
+    this.connectorRoutes = [];
+    
+    if (this.items.length < 2) return;
+    
+    const profile = document.getElementById('routeProfile').value;
+    Toast.show('Calculating routes...', 'info', 1500);
+    
+    for (let i = 0; i < this.items.length - 1; i++) {
+      const item1 = this.items[i];
+      const item2 = this.items[i + 1];
+      
+      // Get end point of item1 and start point of item2
+      let endLatLng, startLatLng;
+      
+      if (item1.type === 'segment') {
+        const end1 = item1.coords[item1.coords.length - 1];
+        endLatLng = L.latLng(Array.isArray(end1) ? end1 : [end1.lat, end1.lng]);
+      } else {
+        endLatLng = L.latLng(item1.lat, item1.lon);
+      }
+      
+      if (item2.type === 'segment') {
+        const start2 = item2.coords[0];
+        startLatLng = L.latLng(Array.isArray(start2) ? start2 : [start2.lat, start2.lng]);
+      } else {
+        startLatLng = L.latLng(item2.lat, item2.lon);
+      }
+      
+      // If they're close enough, skip routing
+      if (endLatLng.distanceTo(startLatLng) < 50) continue;
+      
+      try {
+        const route = await Router.route([endLatLng, startLatLng], profile);
+        
+        // Draw connector - MUCH more visible orange dashed line
+        const line = L.polyline(route.coords, {
+          color: '#f97316',  // Bright orange
+          weight: 5,
+          dashArray: '12,8',
+          opacity: 0.9,
+          lineCap: 'round'
+        }).addTo(Layers.plannerPreview);
+        
+        // Add marker at connection points
+        L.circleMarker(endLatLng, {
+          radius: 8,
+          color: '#f97316',
+          fillColor: '#fff',
+          fillOpacity: 1,
+          weight: 3
+        }).addTo(Layers.plannerPreview);
+        
+        line.bindPopup(`<b>🔗 Connection</b><br>${route.distance} km`);
+        
+        this.connectorRoutes.push({
+          from: item1.id,
+          to: item2.id,
+          distance: route.distance,
+          coords: route.coords,
+          line
+        });
+      } catch(e) {
+        console.warn('Connector routing failed:', e);
+        // Draw straight line as fallback
+        const fallbackLine = L.polyline([endLatLng, startLatLng], {
+          color: '#ef4444',
+          weight: 3,
+          dashArray: '4,8',
+          opacity: 0.7
+        }).addTo(Layers.plannerPreview);
+        fallbackLine.bindPopup('<b>⚠️ Direct line</b><br>Could not route');
+      }
+    }
+    
+    // Update stats after connectors are calculated
+    this.updateStats();
+  },
+  
+  async exportGPX() {
+    if (this.items.length === 0) return;
+    
+    Spinner.show();
+    
+    try {
+      // Combine all coords including stops
+      const allCoords = [];
+      const waypoints = []; // For stops
+      
+      for (let i = 0; i < this.items.length; i++) {
+        const item = this.items[i];
+        
+        if (item.type === 'segment') {
+          item.coords.forEach(c => {
+            const lat = Array.isArray(c) ? c[0] : c.lat;
+            const lng = Array.isArray(c) ? c[1] : c.lng;
+            allCoords.push({ lat, lng });
+          });
+        } else if (item.type === 'stop') {
+          allCoords.push({ lat: item.lat, lng: item.lon });
+          waypoints.push({ lat: item.lat, lng: item.lon, name: item.name });
+        }
+        
+        // Add connector if exists
+        const connector = this.connectorRoutes.find(c => c.from === item.id);
+        if (connector) {
+          connector.coords.forEach(c => {
+            const lat = Array.isArray(c) ? c[0] : c.lat;
+            const lng = Array.isArray(c) ? c[1] : c.lng;
+            allCoords.push({ lat, lng });
+          });
+        }
+      }
+      
+      // Get elevation data
+      const elevData = await Elevation.fetch(allCoords);
+      
+      // Build GPX
+      let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n';
+      gpx += '<gpx version="1.1" creator="CyclingMap" xmlns="http://www.topografix.com/GPX/1/1">\n';
+      
+      // Add waypoints for stops
+      waypoints.forEach(wp => {
+        gpx += `<wpt lat="${wp.lat}" lon="${wp.lng}"><name>${Utils.escapeHtml(wp.name)}</name></wpt>\n`;
+      });
+      
+      gpx += '<trk>\n';
+      gpx += `<name>Ride Plan - ${new Date().toLocaleDateString()}</name>\n`;
+      gpx += '<trkseg>\n';
+      
+      const step = Math.max(1, Math.floor(allCoords.length / 500)); // Limit points
+      for (let i = 0; i < allCoords.length; i += step) {
+        const c = allCoords[i];
+        const eleIdx = Math.min(Math.floor(i / step), (elevData.elevations?.length || 1) - 1);
+        const ele = elevData.elevations?.[eleIdx] || 0;
+        gpx += `<trkpt lat="${c.lat}" lon="${c.lng}"><ele>${ele}</ele></trkpt>\n`;
+      }
+      
+      gpx += '</trkseg>\n</trk>\n</gpx>';
+      
+      // Download
+      const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ride_plan_${Date.now()}.gpx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      Toast.success('GPX exported!');
+    } catch(e) {
+      Toast.error('Export failed');
+      console.error(e);
+    } finally {
+      Spinner.hide();
+    }
   }
-}
+};
 
 /* =========================
-   Make sure user POIs are visible per toggles initially
+   Main App Controller
    ========================= */
-document.getElementById('toggleUserPOIs').addEventListener('change', e => setVisible(userPoisLayer, e.target.checked));
-document.getElementById('toggleToilets').addEventListener('change', e => setVisible(toiletsCluster, e.target.checked));
-document.getElementById('toggleCamps').addEventListener('change', e => setVisible(campsCluster, e.target.checked));
-document.getElementById('toggleSegments').addEventListener('change', e => setVisible(segmentsLayer, e.target.checked));
+const App = {
+  routingActive: false,
+  waypoints: [],
+  waypointMarkers: [],
+  previewLine: null,
+  
+  init() {
+    this.setupEventListeners();
+    this.setupLayerToggles();
+    this.setupCollapsibles();
+    RidePlanner.init();
+    History.push(this.collectData());
+    
+    // Global function for POI popup buttons
+    window.addPOIToPlanner = (lat, lon, name, iconType) => {
+      RidePlanner.toggle(true);
+      RidePlanner.addStop(lat, lon, name, iconType);
+    };
+    
+    // Initial data load
+    this.refreshPOIData();
+    
+    console.log('🚲 Cycling Map v4 loaded!');
+  },
+  
+  setupEventListeners() {
+    // Routing
+    document.getElementById('btnRoute').onclick = () => this.toggleRouting();
+    document.getElementById('btnFinish').onclick = () => this.finishRoute();
+    document.getElementById('btnCancel').onclick = () => this.cancelRouting();
+    
+    // History
+    document.getElementById('btnUndo').onclick = () => {
+      const data = History.undo();
+      if (data) {
+        this.loadData(data);
+        Toast.show('Undo');
+      }
+    };
+    document.getElementById('btnRedo').onclick = () => {
+      const data = History.redo();
+      if (data) {
+        this.loadData(data);
+        Toast.show('Redo');
+      }
+    };
+    
+    // File operations
+    document.getElementById('btnDownload').onclick = () => this.downloadData();
+    document.getElementById('importFile').onchange = (e) => this.importJSON(e);
+    document.getElementById('importGPX').onchange = (e) => this.importGPX(e);
+    
+    // Ride Planner
+    document.getElementById('btnTogglePlanner').onclick = () => RidePlanner.toggle();
+    document.getElementById('btnClosePlanner').onclick = () => RidePlanner.toggle(false);
+    document.getElementById('btnExportPlanGPX').onclick = () => RidePlanner.exportGPX();
+    document.getElementById('btnClearPlan').onclick = () => {
+      if (confirm('Clear all segments from ride plan?')) RidePlanner.clear();
+    };
+    document.getElementById('btnAutoRoute').onclick = () => RidePlanner.calculateConnectors();
+    
+    // Map events
+    map.on('click', (e) => this.handleMapClick(e));
+    map.on('mousemove', (e) => this.handleMapMouseMove(e));
+    map.on('moveend', () => this.refreshPOIData());
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (this.routingActive) this.cancelRouting();
+      }
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        this.downloadData();
+      }
+      if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('btnUndo').click();
+      }
+      if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
+        e.preventDefault();
+        document.getElementById('btnRedo').click();
+      }
+    });
+    
+    // Segment click for adding to planner
+    Layers.segments.on('click', (e) => {
+      if (RidePlanner.isOpen && !this.routingActive) {
+        L.DomEvent.stopPropagation(e);
+        RidePlanner.addSegment(e.layer);
+      }
+    });
+  },
+  
+  setupLayerToggles() {
+    const toggles = {
+      toggleSegments: Layers.segments,
+      toggleUserPOIs: Layers.userPOIs,
+      toggleBikePaths: Layers.bikePaths,
+      toggleToilets: Layers.toilets,
+      toggleCamps: Layers.camps
+    };
+    
+    Object.entries(toggles).forEach(([id, layer]) => {
+      const checkbox = document.getElementById(id);
+      if (!checkbox) return;
+      
+      checkbox.addEventListener('change', (e) => {
+        Layers.setVisible(layer, e.target.checked);
+        
+        // Trigger data refresh if enabling
+        if (e.target.checked) {
+          if (id === 'toggleToilets') POILoaders.toilets();
+          if (id === 'toggleCamps') POILoaders.camps();
+          if (id === 'toggleBikePaths') POILoaders.bikePaths();
+        }
+      });
+    });
+  },
+  
+  setupCollapsibles() {
+    document.querySelectorAll('.collapsible-header').forEach(header => {
+      header.addEventListener('click', () => {
+        const targetId = header.dataset.target;
+        const content = document.getElementById(targetId);
+        
+        header.classList.toggle('collapsed');
+        content.classList.toggle('collapsed');
+        
+        if (!content.classList.contains('collapsed')) {
+          content.style.maxHeight = content.scrollHeight + 'px';
+        } else {
+          content.style.maxHeight = '0';
+        }
+      });
+    });
+    
+    // Initialize open ones
+    document.querySelectorAll('.collapsible-content:not(.collapsed)').forEach(el => {
+      el.style.maxHeight = el.scrollHeight + 'px';
+    });
+  },
+  
+  refreshPOIData() {
+    if (document.getElementById('toggleToilets').checked) POILoaders.toilets();
+    if (document.getElementById('toggleCamps').checked) POILoaders.camps();
+    if (document.getElementById('toggleBikePaths').checked) POILoaders.bikePaths();
+  },
+  
+  toggleRouting() {
+    this.routingActive = !this.routingActive;
+    const btn = document.getElementById('btnRoute');
+    
+    if (this.routingActive) {
+      btn.textContent = '🎯 Active';
+      btn.classList.remove('primary');
+      btn.classList.add('accent');
+      Toast.show('Click map to add waypoints');
+    } else {
+      this.cancelRouting();
+    }
+  },
+  
+  cancelRouting() {
+    this.routingActive = false;
+    this.waypoints = [];
+    this.waypointMarkers.forEach(m => map.removeLayer(m));
+    this.waypointMarkers = [];
+    if (this.previewLine) {
+      map.removeLayer(this.previewLine);
+      this.previewLine = null;
+    }
+    
+    const btn = document.getElementById('btnRoute');
+    btn.textContent = '🛤️ Route';
+    btn.classList.add('primary');
+    btn.classList.remove('accent');
+    
+    document.getElementById('btnFinish').disabled = true;
+    document.getElementById('btnCancel').disabled = true;
+  },
+  
+  handleMapClick(e) {
+    // Ctrl+click to add POI
+    if (e.originalEvent?.ctrlKey && !this.routingActive) {
+      History.push(this.collectData());
+      this.addUserPOI(e.latlng);
+      Toast.success('POI added');
+      return;
+    }
+    
+    // Routing mode
+    if (this.routingActive) {
+      this.waypoints.push(e.latlng);
+      const marker = L.circleMarker(e.latlng, {
+        radius: 6,
+        color: '#7c3aed',
+        fillColor: '#fff',
+        fillOpacity: 1,
+        weight: 3
+      }).addTo(map);
+      this.waypointMarkers.push(marker);
+      
+      document.getElementById('btnCancel').disabled = false;
+      document.getElementById('btnFinish').disabled = this.waypoints.length < 2;
+    }
+  },
+  
+  handleMapMouseMove(e) {
+    if (this.routingActive && this.waypoints.length > 0) {
+      const coords = [...this.waypoints, e.latlng];
+      if (this.previewLine) {
+        this.previewLine.setLatLngs(coords);
+      } else {
+        this.previewLine = L.polyline(coords, {
+          color: '#888',
+          weight: 3,
+          opacity: 0.6,
+          dashArray: '6,6'
+        }).addTo(map);
+      }
+    }
+  },
+  
+  async finishRoute() {
+    if (this.waypoints.length < 2) return;
+    
+    History.push(this.collectData());
+    Spinner.show();
+    
+    if (this.previewLine) {
+      map.removeLayer(this.previewLine);
+      this.previewLine = null;
+    }
+    
+    const profile = document.getElementById('routeProfile').value;
+    
+    try {
+      const result = await Router.route(this.waypoints, profile);
+      
+      const segment = L.polyline(result.coords, styleForRank('good')).addTo(Layers.segments);
+      
+      const id = Utils.generateId();
+      segment.feature = {
+        type: 'Feature',
+        properties: {
+          id,
+          layerType: 'segment',
+          rank: 'good',
+          name: `Route (${profile})`,
+          distance_km: result.distance,
+          surface: 'unknown'
+        },
+        geometry: {
+          type: 'LineString',
+          coordinates: result.coords.map(c => [c[1], c[0]])
+        }
+      };
+      
+      // Get elevation and bind popup
+      const elevData = await Elevation.fetch(result.coords);
+      this.bindSegmentPopup(segment, result.distance, elevData);
+      
+      Toast.success(`Route: ${result.distance} km`);
+    } catch(e) {
+      Toast.error('Routing failed');
+      console.error(e);
+    } finally {
+      Spinner.hide();
+      this.cancelRouting();
+    }
+  },
+  
+  bindSegmentPopup(layer, distance, elevData) {
+    const props = layer.feature?.properties || {};
+    
+    const html = `<div class="popup-form">
+      <label>Name</label>
+      <input id="segName" value="${Utils.escapeHtml(props.name || '')}" />
+      <label>Rank</label>
+      <select id="segRank">
+        <option value="dedicated" ${props.rank === 'dedicated' ? 'selected' : ''}>Dedicated</option>
+        <option value="good" ${props.rank === 'good' ? 'selected' : ''}>Good</option>
+        <option value="okay" ${props.rank === 'okay' ? 'selected' : ''}>Okay</option>
+        <option value="bad" ${props.rank === 'bad' ? 'selected' : ''}>Bad</option>
+      </select>
+      <label>Surface</label>
+      <select id="segSurface">
+        <option value="paved" ${props.surface === 'paved' ? 'selected' : ''}>Paved</option>
+        <option value="asphalt" ${props.surface === 'asphalt' ? 'selected' : ''}>Asphalt</option>
+        <option value="gravel" ${props.surface === 'gravel' ? 'selected' : ''}>Gravel</option>
+        <option value="dirt" ${props.surface === 'dirt' ? 'selected' : ''}>Dirt</option>
+        <option value="unknown" ${props.surface === 'unknown' ? 'selected' : ''}>Unknown</option>
+      </select>
+      <div style="margin-top:10px;padding:8px;background:var(--gray-50);border-radius:6px;font-size:12px">
+        <b>Stats:</b> ${distance} km • ↗️${elevData.gain || 0}m • ↘️${elevData.loss || 0}m
+      </div>
+      <div class="popup-actions">
+        <button id="segSave" class="btn primary sm">Save</button>
+        <button id="segAddToPlan" class="btn sm accent">Add to Plan</button>
+        <button id="segDelete" class="btn sm danger">Delete</button>
+      </div>
+    </div>`;
+    
+    layer.bindPopup(html, { maxWidth: 280 });
+    
+    layer.on('popupopen', () => {
+      document.getElementById('segSave').onclick = () => {
+        props.name = document.getElementById('segName').value;
+        props.rank = document.getElementById('segRank').value;
+        props.surface = document.getElementById('segSurface').value;
+        layer.setStyle(styleForRank(props.rank));
+        History.push(this.collectData());
+        Toast.success('Saved');
+        layer.closePopup();
+      };
+      
+      document.getElementById('segAddToPlan').onclick = () => {
+        RidePlanner.toggle(true);
+        RidePlanner.addSegment(layer);
+        layer.closePopup();
+      };
+      
+      document.getElementById('segDelete').onclick = () => {
+        if (confirm('Delete segment?')) {
+          History.push(this.collectData());
+          Layers.segments.removeLayer(layer);
+          Toast.success('Deleted');
+        }
+      };
+    });
+  },
+  
+  addUserPOI(latlng, properties = {}) {
+    const marker = L.marker(latlng, {
+      draggable: true,
+      icon: createMarkerIcon('campground')
+    });
+    
+    const props = { name: 'New POI', category: 'campground', ...properties };
+    marker.feature = {
+      type: 'Feature',
+      properties: props,
+      geometry: { type: 'Point', coordinates: [latlng.lng, latlng.lat] }
+    };
+    
+    marker.bindPopup(`<b>${Utils.escapeHtml(props.name)}</b>`);
+    Layers.userPOIs.addLayer(marker);
+    
+    marker.on('dragend', () => {
+      const ll = marker.getLatLng();
+      marker.feature.geometry.coordinates = [ll.lng, ll.lat];
+    });
+    
+    return marker;
+  },
+  
+  collectData() {
+    return {
+      segments: Layers.segments.toGeoJSON(),
+      pois: Layers.userPOIs.toGeoJSON()
+    };
+  },
+  
+  loadData(data) {
+    Layers.segments.clearLayers();
+    Layers.userPOIs.clearLayers();
+    
+    if (data.segments?.features) {
+      data.segments.features.forEach(f => {
+        if (f.geometry?.type === 'LineString') {
+          const coords = f.geometry.coordinates.map(c => [c[1], c[0]]);
+          const layer = L.polyline(coords, styleForRank(f.properties?.rank || 'good'));
+          layer.feature = f;
+          Layers.segments.addLayer(layer);
+          
+          const dist = f.properties?.distance_km || '?';
+          Elevation.fetch(coords).then(elev => {
+            this.bindSegmentPopup(layer, dist, elev);
+          });
+        }
+      });
+    }
+    
+    if (data.pois?.features) {
+      data.pois.features.forEach(f => {
+        if (f.geometry?.coordinates) {
+          const latlng = L.latLng(f.geometry.coordinates[1], f.geometry.coordinates[0]);
+          this.addUserPOI(latlng, f.properties);
+        }
+      });
+    }
+  },
+  
+  downloadData() {
+    const data = this.collectData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cycling_map_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    Toast.success('Downloaded');
+  },
+  
+  importJSON(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        History.push(this.collectData());
+        this.loadData(data);
+        Toast.success('Imported');
+      } catch(err) {
+        Toast.error('Invalid file');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  },
+  
+  async importGPX(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    Spinner.show();
+    
+    try {
+      const text = await file.text();
+      const parser = new DOMParser();
+      const gpx = parser.parseFromString(text, 'application/xml');
+      
+      History.push(this.collectData());
+      let count = 0;
+      
+      // Parse tracks
+      gpx.querySelectorAll('trk').forEach(trk => {
+        const name = trk.querySelector('name')?.textContent || 'Imported';
+        
+        trk.querySelectorAll('trkseg').forEach(seg => {
+          const coords = [];
+          seg.querySelectorAll('trkpt').forEach(pt => {
+            const lat = parseFloat(pt.getAttribute('lat'));
+            const lon = parseFloat(pt.getAttribute('lon'));
+            if (!isNaN(lat) && !isNaN(lon)) coords.push([lat, lon]);
+          });
+          
+          if (coords.length >= 2) {
+            let dist = 0;
+            for (let i = 1; i < coords.length; i++) {
+              dist += L.latLng(coords[i-1]).distanceTo(L.latLng(coords[i]));
+            }
+            
+            const layer = L.polyline(coords, styleForRank('good')).addTo(Layers.segments);
+            layer.feature = {
+              type: 'Feature',
+              properties: {
+                id: Utils.generateId(),
+                name,
+                rank: 'good',
+                distance_km: (dist / 1000).toFixed(2),
+                surface: 'unknown'
+              },
+              geometry: {
+                type: 'LineString',
+                coordinates: coords.map(c => [c[1], c[0]])
+              }
+            };
+            
+            Elevation.fetch(coords).then(elev => {
+              this.bindSegmentPopup(layer, (dist / 1000).toFixed(2), elev);
+            });
+            
+            count++;
+          }
+        });
+      });
+      
+      Toast.success(`Imported ${count} segment(s)`);
+      
+      if (Layers.segments.getLayers().length) {
+        map.fitBounds(Layers.segments.getBounds(), { padding: [50, 50] });
+      }
+    } catch(err) {
+      Toast.error('GPX import failed');
+      console.error(err);
+    } finally {
+      Spinner.hide();
+      e.target.value = '';
+    }
+  }
+};
 
-/* =========================
-   Load local data on start if present
-   ========================= */
-if(localStorage.getItem('cycling_map_data_v1')){
-  try{
-    const parsed = JSON.parse(localStorage.getItem('cycling_map_data_v1'));
-    loadDataIntoMap(parsed);
-  }catch(e){ console.warn('Failed to load local data at startup', e); }
-}
+// Initialize
+App.init();
 
-/* =========================
-   Final notes: UX improvements
-   - clicking segments opens popup for rank/delete/edit
-   - user can drag POIs (draggable). On dragend we update feature coords
-   ========================= */
-map.on('layeradd', () => {
-  // keep clusters / layers consistent
-});
-
-/* =========================
-   Done
-   ========================= */
-console.log('Cycling map loaded with full feature set.');
+})();
 </script>
 </body>
 </html>
