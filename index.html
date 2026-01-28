@@ -291,6 +291,40 @@ html, body, #map { height: 100%; margin: 0; padding: 0; font-family: system-ui, 
   border-bottom: 1px solid var(--gray-200);
 }
 
+/* Segment popup elevation chart */
+.segment-elev-chart {
+  height: 60px;
+  margin: 8px 0;
+  background: var(--gray-50);
+  border-radius: 4px;
+  padding: 4px;
+}
+
+/* Direction arrows on polylines */
+.direction-arrow {
+  font-size: 14px;
+  color: inherit;
+}
+
+/* Reverse button for segments/route */
+.btn-icon {
+  padding: 6px 8px;
+  min-width: 32px;
+  justify-content: center;
+}
+
+/* Notes textarea in popup */
+.popup-form textarea {
+  resize: vertical;
+  min-height: 50px;
+}
+
+/* Direction arrow markers */
+.direction-arrow-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
 /* Buttons */
 .btn {
   padding: 8px 12px;
@@ -589,7 +623,7 @@ html, body, #map { height: 100%; margin: 0; padding: 0; font-family: system-ui, 
           <label for="toggleUserPOIs">My POIs</label>
         </div>
         <div class="layer-row">
-          <input type="checkbox" id="toggleBikePaths" checked/>
+          <input type="checkbox" id="toggleBikePaths"/>
           <label for="toggleBikePaths">🚴 Bike Paths</label>
         </div>
         <div class="layer-row">
@@ -630,7 +664,10 @@ html, body, #map { height: 100%; margin: 0; padding: 0; font-family: system-ui, 
 <div class="panel ride-planner collapsed" id="ridePlanner">
   <div class="ride-planner-header">
     <h2>📋 Ride Planner</h2>
-    <button id="btnClosePlanner" class="btn sm" style="background:rgba(255,255,255,0.2);border:none;color:#fff">✕</button>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button id="btnReversePlan" class="btn sm btn-icon" style="background:rgba(255,255,255,0.2);border:none;color:#fff" title="Reverse route order">🔄</button>
+      <button id="btnClosePlanner" class="btn sm" style="background:rgba(255,255,255,0.2);border:none;color:#fff">✕</button>
+    </div>
   </div>
   
   <div class="ride-stats" id="rideStats">
@@ -695,9 +732,10 @@ html, body, #map { height: 100%; margin: 0; padding: 0; font-family: system-ui, 
 const CONFIG = {
   defaultCenter: [36.08, 140.11], // Tsukuba
   defaultZoom: 12,
-  minZoomForBikePaths: 13,
+  minZoomForBikePaths: 10,  // Lowered to show bike paths when more zoomed out
   minZoomForPOIs: 11,
   debounceDelay: 800,
+  nominatimUrl: 'https://nominatim.openstreetmap.org/reverse',
   maxHistorySize: 50,
   surfaceColors: {
     paved: '#16a34a',
@@ -893,6 +931,9 @@ const Layers = {
 };
 
 Layers.init();
+
+// Hide bike paths layer by default (checkbox is unchecked)
+map.removeLayer(Layers.bikePaths);
 
 /* =========================
    Styling
@@ -1226,6 +1267,59 @@ const Elevation = {
 };
 
 /* =========================
+   Geocoding Service (for street names)
+   ========================= */
+const Geocoder = {
+  cache: new Map(),
+  
+  async reverseGeocode(lat, lon) {
+    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    if (this.cache.has(key)) return this.cache.get(key);
+    
+    try {
+      const url = `${CONFIG.nominatimUrl}?lat=${lat}&lon=${lon}&format=json&zoom=17`;
+      const resp = await fetch(url, {
+        headers: { 'User-Agent': 'CyclingMapApp/1.0' }
+      });
+      
+      if (!resp.ok) return null;
+      
+      const data = await resp.json();
+      const addr = data.address || {};
+      
+      // Try to get street name
+      const street = addr.road || addr.pedestrian || addr.cycleway || addr.path || addr.footway || addr.name || null;
+      this.cache.set(key, street);
+      return street;
+    } catch(e) {
+      console.warn('Geocoding error:', e);
+      return null;
+    }
+  },
+  
+  async getSegmentName(startCoord, endCoord) {
+    const startLat = Array.isArray(startCoord) ? startCoord[0] : startCoord.lat;
+    const startLon = Array.isArray(startCoord) ? startCoord[1] : startCoord.lng;
+    const endLat = Array.isArray(endCoord) ? endCoord[0] : endCoord.lat;
+    const endLon = Array.isArray(endCoord) ? endCoord[1] : endCoord.lng;
+    
+    const [startStreet, endStreet] = await Promise.all([
+      this.reverseGeocode(startLat, startLon),
+      this.reverseGeocode(endLat, endLon)
+    ]);
+    
+    if (startStreet && endStreet && startStreet !== endStreet) {
+      return `${startStreet} → ${endStreet}`;
+    } else if (startStreet) {
+      return startStreet;
+    } else if (endStreet) {
+      return endStreet;
+    }
+    return null;
+  }
+};
+
+/* =========================
    Ride Planner
    ========================= */
 const RidePlanner = {
@@ -1359,6 +1453,38 @@ const RidePlanner = {
     this.updateUI();
   },
   
+  reverseOrder() {
+    if (this.items.length < 2) {
+      Toast.warning('Need at least 2 items to reverse');
+      return;
+    }
+    
+    // Reverse the order of all items
+    this.items.reverse();
+    
+    // Also reverse each segment's direction
+    this.items.forEach(item => {
+      if (item.type === 'segment' && item.layer) {
+        const coords = item.layer.getLatLngs();
+        const reversed = [...coords].reverse();
+        item.layer.setLatLngs(reversed);
+        item.coords = reversed;
+        
+        // Update feature geometry
+        if (item.layer.feature?.geometry) {
+          item.layer.feature.geometry.coordinates = reversed.map(c => [c.lng, c.lat]);
+        }
+        
+        // Update direction arrows
+        App.addDirectionArrows(item.layer);
+      }
+    });
+    
+    this.updateUI();
+    this.calculateConnectors();
+    Toast.success('Route reversed');
+  },
+  
   setupDragDrop() {
     let draggedItem = null;
     let draggedIdx = -1;
@@ -1430,7 +1556,7 @@ const RidePlanner = {
           <div style="font-size:24px;margin-bottom:8px">🗺️</div>
           <div><b>Plan your ride</b></div>
           <div style="margin-top:6px;opacity:0.8">
-            • Click route segments to add them<br>
+            • Click segments, then "Add to Plan"<br>
             • Add stops from POI popups<br>
             • Drag to reorder
           </div>
@@ -1823,6 +1949,7 @@ const App = {
     // Ride Planner
     document.getElementById('btnTogglePlanner').onclick = () => RidePlanner.toggle();
     document.getElementById('btnClosePlanner').onclick = () => RidePlanner.toggle(false);
+    document.getElementById('btnReversePlan').onclick = () => RidePlanner.reverseOrder();
     document.getElementById('btnExportPlanGPX').onclick = () => RidePlanner.exportGPX();
     document.getElementById('btnClearPlan').onclick = () => {
       if (confirm('Clear all segments from ride plan?')) RidePlanner.clear();
@@ -1853,12 +1980,11 @@ const App = {
       }
     });
     
-    // Segment click for adding to planner
+    // Segment click - just open popup, don't auto-add to planner
+    // User must click "Add to Plan" button in popup to add segment
     Layers.segments.on('click', (e) => {
-      if (RidePlanner.isOpen && !this.routingActive) {
-        L.DomEvent.stopPropagation(e);
-        RidePlanner.addSegment(e.layer);
-      }
+      // Just allow normal popup to open - no auto-add behavior
+      // The "Add to Plan" button in the popup handles adding
     });
   },
   
@@ -1914,6 +2040,7 @@ const App = {
   refreshPOIData() {
     if (document.getElementById('toggleToilets').checked) POILoaders.toilets();
     if (document.getElementById('toggleCamps').checked) POILoaders.camps();
+    // Only load bike paths if checkbox is checked (now defaults to unchecked)
     if (document.getElementById('toggleBikePaths').checked) POILoaders.bikePaths();
   },
   
@@ -2010,16 +2137,42 @@ const App = {
       
       const segment = L.polyline(result.coords, styleForRank('good')).addTo(Layers.segments);
       
+      // Add direction arrows to the segment
+      this.addDirectionArrows(segment);
+      
       const id = Utils.generateId();
+      
+      // Try to auto-name based on start/end streets
+      let autoName = `Route (${profile})`;
+      try {
+        const streetName = await Geocoder.getSegmentName(result.coords[0], result.coords[result.coords.length - 1]);
+        if (streetName) autoName = streetName;
+      } catch(e) {
+        console.warn('Auto-naming failed:', e);
+      }
+      
+      // Try to detect surface from routing properties
+      let detectedSurface = 'unknown';
+      if (result.properties) {
+        const props = result.properties;
+        // BRouter provides surface info
+        if (props['surface']) {
+          detectedSurface = props['surface'];
+        } else if (props['cost-per-km'] && props['cost-per-km'] < 50) {
+          detectedSurface = 'paved';  // Low cost usually means paved/good surface
+        }
+      }
+      
       segment.feature = {
         type: 'Feature',
         properties: {
           id,
           layerType: 'segment',
           rank: 'good',
-          name: `Route (${profile})`,
+          name: autoName,
           distance_km: result.distance,
-          surface: 'unknown'
+          surface: detectedSurface,
+          notes: ''
         },
         geometry: {
           type: 'LineString',
@@ -2041,8 +2194,83 @@ const App = {
     }
   },
   
+  addDirectionArrows(layer) {
+    // Add direction decorator pattern using a custom approach
+    const coords = layer.getLatLngs();
+    if (coords.length < 2) return;
+    
+    // Store arrows reference on layer for removal/update
+    layer._directionArrows = layer._directionArrows || [];
+    
+    // Clear existing arrows
+    layer._directionArrows.forEach(a => map.removeLayer(a));
+    layer._directionArrows = [];
+    
+    // Add arrows at intervals along the path
+    const totalDist = coords.reduce((sum, c, i) => {
+      if (i === 0) return 0;
+      return sum + coords[i-1].distanceTo(c);
+    }, 0);
+    
+    const arrowInterval = Math.max(500, totalDist / 8); // Arrow every 500m or 1/8 of route
+    let accumulated = 0;
+    
+    for (let i = 1; i < coords.length; i++) {
+      const segDist = coords[i-1].distanceTo(coords[i]);
+      accumulated += segDist;
+      
+      if (accumulated >= arrowInterval) {
+        accumulated = 0;
+        
+        // Calculate bearing
+        const lat1 = coords[i-1].lat * Math.PI / 180;
+        const lat2 = coords[i].lat * Math.PI / 180;
+        const dLon = (coords[i].lng - coords[i-1].lng) * Math.PI / 180;
+        const y = Math.sin(dLon) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+        const bearing = Math.atan2(y, x) * 180 / Math.PI;
+        
+        // Position at midpoint of this segment
+        const midLat = (coords[i-1].lat + coords[i].lat) / 2;
+        const midLng = (coords[i-1].lng + coords[i].lng) / 2;
+        
+        const arrowIcon = L.divIcon({
+          html: `<div style="transform: rotate(${bearing}deg); font-size: 16px; color: ${layer.options.color || '#16a34a'}; text-shadow: 1px 1px 2px white, -1px -1px 2px white, 0 0 3px white;">▲</div>`,
+          className: 'direction-arrow-icon',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        });
+        
+        const arrow = L.marker([midLat, midLng], { 
+          icon: arrowIcon, 
+          interactive: false,
+          pane: 'markerPane'
+        }).addTo(map);
+        
+        layer._directionArrows.push(arrow);
+      }
+    }
+  },
+  
+  reverseSegment(layer) {
+    const coords = layer.getLatLngs();
+    const reversed = [...coords].reverse();
+    layer.setLatLngs(reversed);
+    
+    // Update feature geometry
+    if (layer.feature?.geometry) {
+      layer.feature.geometry.coordinates = reversed.map(c => [c.lng, c.lat]);
+    }
+    
+    // Refresh direction arrows
+    this.addDirectionArrows(layer);
+    
+    Toast.success('Segment direction reversed');
+  },
+  
   bindSegmentPopup(layer, distance, elevData) {
     const props = layer.feature?.properties || {};
+    const chartId = `segChart_${props.id || Utils.generateId()}`;
     
     const html = `<div class="popup-form">
       <label>Name</label>
@@ -2062,26 +2290,84 @@ const App = {
         <option value="dirt" ${props.surface === 'dirt' ? 'selected' : ''}>Dirt</option>
         <option value="unknown" ${props.surface === 'unknown' ? 'selected' : ''}>Unknown</option>
       </select>
+      <label>Notes</label>
+      <textarea id="segNotes" placeholder="Add notes about this segment...">${Utils.escapeHtml(props.notes || '')}</textarea>
       <div style="margin-top:10px;padding:8px;background:var(--gray-50);border-radius:6px;font-size:12px">
         <b>Stats:</b> ${distance} km • ↗️${elevData.gain || 0}m • ↘️${elevData.loss || 0}m
       </div>
+      <div class="segment-elev-chart">
+        <canvas id="${chartId}"></canvas>
+      </div>
       <div class="popup-actions">
         <button id="segSave" class="btn primary sm">Save</button>
+        <button id="segReverse" class="btn sm btn-icon" title="Reverse direction">🔄</button>
         <button id="segAddToPlan" class="btn sm accent">Add to Plan</button>
         <button id="segDelete" class="btn sm danger">Delete</button>
       </div>
     </div>`;
     
-    layer.bindPopup(html, { maxWidth: 280 });
+    layer.bindPopup(html, { maxWidth: 300 });
+    
+    // Store elevData on layer for chart rendering
+    layer._elevData = elevData;
+    layer._chartId = chartId;
     
     layer.on('popupopen', () => {
+      // Render elevation chart in popup
+      if (layer._elevData?.elevations?.length > 0) {
+        const ctx = document.getElementById(layer._chartId);
+        if (ctx) {
+          ChartManager.create(layer._chartId, ctx, {
+            type: 'line',
+            data: {
+              labels: layer._elevData.distances,
+              datasets: [{
+                data: layer._elevData.elevations,
+                fill: true,
+                borderColor: '#7c3aed',
+                backgroundColor: 'rgba(124,58,237,0.15)',
+                tension: 0.3,
+                pointRadius: 0,
+                borderWidth: 1.5
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { display: false },
+                y: { 
+                  display: true,
+                  ticks: { font: { size: 8 }, maxTicksLimit: 3 }
+                }
+              }
+            }
+          });
+        }
+      }
+      
       document.getElementById('segSave').onclick = () => {
         props.name = document.getElementById('segName').value;
         props.rank = document.getElementById('segRank').value;
         props.surface = document.getElementById('segSurface').value;
+        props.notes = document.getElementById('segNotes').value;
         layer.setStyle(styleForRank(props.rank));
+        // Update direction arrows color
+        this.addDirectionArrows(layer);
         History.push(this.collectData());
         Toast.success('Saved');
+        layer.closePopup();
+      };
+      
+      document.getElementById('segReverse').onclick = () => {
+        this.reverseSegment(layer);
+        // Rebind popup with updated data
+        const coords = layer.getLatLngs();
+        Elevation.fetch(coords).then(newElevData => {
+          layer._elevData = newElevData;
+          this.bindSegmentPopup(layer, distance, newElevData);
+        });
         layer.closePopup();
       };
       
@@ -2094,10 +2380,18 @@ const App = {
       document.getElementById('segDelete').onclick = () => {
         if (confirm('Delete segment?')) {
           History.push(this.collectData());
+          // Remove direction arrows
+          if (layer._directionArrows) {
+            layer._directionArrows.forEach(a => map.removeLayer(a));
+          }
           Layers.segments.removeLayer(layer);
           Toast.success('Deleted');
         }
       };
+    });
+    
+    layer.on('popupclose', () => {
+      ChartManager.destroy(layer._chartId);
     });
   },
   
@@ -2143,6 +2437,9 @@ const App = {
           const layer = L.polyline(coords, styleForRank(f.properties?.rank || 'good'));
           layer.feature = f;
           Layers.segments.addLayer(layer);
+          
+          // Add direction arrows
+          this.addDirectionArrows(layer);
           
           const dist = f.properties?.distance_km || '?';
           Elevation.fetch(coords).then(elev => {
@@ -2233,13 +2530,17 @@ const App = {
                 name,
                 rank: 'good',
                 distance_km: (dist / 1000).toFixed(2),
-                surface: 'unknown'
+                surface: 'unknown',
+                notes: ''
               },
               geometry: {
                 type: 'LineString',
                 coordinates: coords.map(c => [c[1], c[0]])
               }
             };
+            
+            // Add direction arrows
+            this.addDirectionArrows(layer);
             
             Elevation.fetch(coords).then(elev => {
               this.bindSegmentPopup(layer, (dist / 1000).toFixed(2), elev);
